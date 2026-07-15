@@ -58,6 +58,51 @@
         color: #666;
         margin-top: 8px;
       }
+      textarea {
+        width: 100%;
+        box-sizing: border-box;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12px;
+        line-height: 1.5;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        resize: vertical;
+      }
+      label {
+        display: block;
+        font-weight: 600;
+        margin: 12px 0 4px;
+      }
+      input[type='text'] {
+        width: 100%;
+        box-sizing: border-box;
+        font-size: 13px;
+        padding: 6px 8px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        margin-top: 12px;
+      }
+      pre.preview {
+        background: #f7f7f7;
+        border: 1px solid #e0e0e0;
+        border-radius: 6px;
+        padding: 12px;
+        font-size: 12px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        word-break: break-word;
+        max-height: 360px;
+        overflow: auto;
+      }
+      .picked {
+        font-size: 13px;
+        margin-top: 12px;
+      }
     </style>
   </head>
   <body>
@@ -75,6 +120,32 @@
         也不會用日期當檔名，避免被 hyday 誤認成 journal。
       </p>
     </div>
+
+    <div class="card">
+      <strong>模板</strong>
+      <p class="muted">
+        用 JSON 編輯你的模板組，第一個 trigger 命中的模板勝出，皆不中則用最上面那組。
+        body 與 property 的值可用 <code>{{變數}}</code>，例如
+        <code>{{title}}</code>、<code>{{content}}</code>、<code>{{author}}</code>、
+        <code>{{published|date:"YYYY-MM-DD"}}</code>、<code>{{selectorHtml:.price|markdown}}</code>。
+      </p>
+
+      <label for="templates">模板（JSON）</label>
+      <textarea id="templates" rows="16" spellcheck="false"></textarea>
+
+      <div class="row">
+        <button id="save" class="primary">儲存模板</button>
+        <button id="reset">重設為預設</button>
+      </div>
+      <div id="tplStatus" class="hint"></div>
+
+      <label for="sampleUrl">預覽用的來源網址（決定選到哪組模板）</label>
+      <input id="sampleUrl" type="text" value="https://example.com/blog/hello" />
+      <div class="picked">選中模板：<code id="pickedName">—</code></div>
+      <label>輸出預覽</label>
+      <pre id="preview" class="preview"></pre>
+    </div>
+
     <script type="module" src="./main.ts"></script>
   </body>
 </html>

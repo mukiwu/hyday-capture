@@ -11,3 +11,25 @@ export type {
   OrganizeInput,
   OrganizeOutput,
 } from './types'
+// issue #4 模板引擎
+export {
+  selectTemplate,
+  renderTemplate,
+  interpolate,
+  collectSelectorRefs,
+  applyFilters,
+  parseFilter,
+  formatDate,
+  htmlToMarkdown,
+  FILTERS,
+} from './template'
+export type {
+  Template,
+  Trigger,
+  TriggerType,
+  TemplateProperty,
+  PropertyType,
+  TemplateSource,
+  RenderContext,
+  Filter,
+} from './template'
