@@ -5,13 +5,14 @@
  */
 import type { SelectorsMessage, SelectorsData } from './content'
 
-const EMPTY: SelectorsData = { selectors: {}, selectorsHtml: {} }
+// 每次回傳新物件，避免共用可變常數被呼叫端就地改動而污染後續回傳
+const empty = (): SelectorsData => ({ selectors: {}, selectorsHtml: {} })
 
 export async function requestSelectors(
   tabId: number,
   refs: { selectors: string[]; selectorsHtml: string[] },
 ): Promise<SelectorsData> {
-  if (refs.selectors.length === 0 && refs.selectorsHtml.length === 0) return EMPTY
+  if (refs.selectors.length === 0 && refs.selectorsHtml.length === 0) return empty()
   const message: SelectorsMessage = {
     type: 'HYDAY_EXTRACT_SELECTORS',
     selectors: refs.selectors,
@@ -25,5 +26,5 @@ export async function requestSelectors(
   } catch {
     // 取 selector 失敗不該擋住整個擷取，回空讓變數代成空字串
   }
-  return EMPTY
+  return empty()
 }

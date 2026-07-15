@@ -87,8 +87,9 @@ export async function captureActiveTab(): Promise<WriteResult> {
   }
 
   const tab = await getActiveTab()
-  const extracted = await requestExtraction(tab.id)
+  // 於擷取起點取時間，與背景入口一致（createdAt 反映擷取當下，不受抽取耗時影響）
   const now = new Date()
+  const extracted = await requestExtraction(tab.id)
   const note = await buildNoteFromExtracted(dir, tab.id, extracted, now)
   return writeNoteToDir(dir, note, now)
 }

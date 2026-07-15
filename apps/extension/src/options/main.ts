@@ -10,6 +10,7 @@ import {
   type ExtractedContent,
 } from '@hyday-capture/organize-engine'
 import { loadTemplates, saveTemplates, resetTemplates, DEFAULT_TEMPLATES } from '../templates/store'
+import { validateTemplates } from '../templates/validate'
 
 const pickBtn = document.getElementById('pick') as HTMLButtonElement
 const currentEl = document.getElementById('current')!
@@ -154,7 +155,12 @@ function renderPreview(): void {
     return
   }
   pickedNameEl.textContent = picked.name
-  previewEl.textContent = renderTemplate(picked, { extracted, now: new Date() })
+  // 預覽用一組示意標籤，讓 {{tags}} 看得出效果；實際標籤在擷取當下由錨定式下標算出
+  previewEl.textContent = renderTemplate(picked, {
+    extracted,
+    now: new Date(),
+    tags: ['示意標籤', '擷取時才會換成實際標籤'],
+  })
   setTplStatus('', '')
 }
 
@@ -167,6 +173,13 @@ async function initTemplates(): Promise<void> {
 saveBtn.addEventListener('click', () => {
   const templates = parseTemplates()
   if (!templates) return
+  // spec §128：任何模板都可能被選中，逐組確認會產出 hyday 必要的 frontmatter 欄位
+  const invalid = validateTemplates(templates)
+  if (invalid.length > 0) {
+    const detail = invalid.map((r) => `「${r.name}」缺 ${r.missing.join('、')}`).join('；')
+    setTplStatus('err', `模板缺少必要欄位，未儲存：${detail}`)
+    return
+  }
   void saveTemplates(templates).then(() => setTplStatus('ok', '已儲存，之後每次擷取都會套用'))
 })
 
