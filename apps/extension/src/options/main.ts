@@ -25,11 +25,30 @@ async function showCurrent(): Promise<void> {
     return
   }
   const granted = (await handle.queryPermission({ mode: 'readwrite' })) === 'granted'
+  if (granted) {
+    setCurrent('ok', '目前輸出資料夾：', code(handle.name))
+    return
+  }
+
+  // 資料夾還在，但寫入權限失效了（例如瀏覽器重啟或擴充更新後）。
+  // 右鍵、快捷鍵這些背景入口無法自行請求權限，會把使用者帶來這裡，
+  // 提供一顆有手勢的按鈕就地重新授權，不用整個資料夾重選一次。
+  const reauth = document.createElement('button')
+  reauth.textContent = '重新授權寫入權限'
+  reauth.addEventListener('click', () => {
+    void (async () => {
+      const ok = await ensureReadWritePermission(handle)
+      if (ok) await showCurrent()
+      else setCurrent('err', '沒有取得寫入權限，請再試一次，或改用下方重新選擇資料夾')
+    })()
+  })
   setCurrent(
-    granted ? 'ok' : 'muted',
+    'muted',
     '目前輸出資料夾：',
     code(handle.name),
-    granted ? '' : '（下次擷取時會再請求寫入權限）',
+    '（寫入權限尚未取得）',
+    document.createElement('br'),
+    reauth,
   )
 }
 

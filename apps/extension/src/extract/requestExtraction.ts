@@ -14,8 +14,18 @@ export class ExtractionError extends Error {
   }
 }
 
-export async function requestExtraction(tabId: number): Promise<ExtractedContent> {
-  const message: ExtractMessage = { type: 'HYDAY_EXTRACT' }
+export type ExtractionOptions = {
+  /** 只擷取使用者在頁面上選取的內容，而非整頁 */
+  selectionOnly?: boolean
+}
+
+export async function requestExtraction(
+  tabId: number,
+  opts?: ExtractionOptions,
+): Promise<ExtractedContent> {
+  const message: ExtractMessage = opts?.selectionOnly
+    ? { type: 'HYDAY_EXTRACT_SELECTION' }
+    : { type: 'HYDAY_EXTRACT' }
   let response: ExtractResponse
   try {
     response = (await chrome.tabs.sendMessage(tabId, message)) as ExtractResponse
