@@ -26,12 +26,17 @@ export function yamlScalar(value: string): string {
   const needsQuote =
     value === '' ||
     /^\s|\s$/.test(value) || // 前後空白
+    /[\r\n]/.test(value) || // 含換行，一定要用引號字串攤平成一行
     /^[!&*[\]{},#|>@`"'%]/.test(value) || // 不可作為 plain scalar 開頭的指示字元
     /^[-?:](\s|$)/.test(value) || // - ? : 開頭且後接空白或結尾
     /:(\s|$)/.test(value) || // 冒號後接空白或結尾（mapping 指示）
     /\s#/.test(value) // 空白加井號（註解指示）
   if (!needsQuote) return value
-  const escaped = value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+  const escaped = value
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r')
   return `"${escaped}"`
 }
 
@@ -45,7 +50,9 @@ function serializeValue(value: FrontmatterValue): string {
 }
 
 /**
- * 依序列化欄位，undefined 的欄位略過。回傳含頭尾 --- 的完整 frontmatter 區塊。
+ * 依序列化欄位。只有 undefined 會被略過；空陣列照實輸出成 `key: []`，
+ * 讓「不要這個鍵」與「這個鍵是空陣列」語義分明（issue #6 的 tags 需要這個區別）。
+ * 回傳含頭尾 --- 的完整 frontmatter 區塊。
  */
 export function serializeFrontmatter(
   fields: Array<readonly [string, FrontmatterValue | undefined]>,
@@ -53,7 +60,6 @@ export function serializeFrontmatter(
   const lines = ['---']
   for (const [key, value] of fields) {
     if (value === undefined) continue
-    if (Array.isArray(value) && value.length === 0) continue
     lines.push(`${key}: ${serializeValue(value)}`)
   }
   lines.push('---')

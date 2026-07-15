@@ -1,6 +1,9 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    // 引擎與平台無關（ADR 0006），只開 ES2022 lib，不含 DOM，
+    // 誤用 document/window/fetch 等瀏覽器全域會直接 typecheck 失敗
+    "lib": ["ES2022"],
     "types": [],
     "noEmit": true
   },

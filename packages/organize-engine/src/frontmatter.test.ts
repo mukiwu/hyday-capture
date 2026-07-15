@@ -18,16 +18,19 @@ describe('yamlScalar', () => {
     // 有冒號加空白會觸發引號，內部雙引號需跳脫
     expect(yamlScalar('He said: "hi"')).toBe('"He said: \\"hi\\""')
   })
+  it('含換行的值加引號並把換行跳脫成 \\n，攤平成一行', () => {
+    expect(yamlScalar('line1\nline2')).toBe('"line1\\nline2"')
+  })
 })
 
 describe('serializeFrontmatter', () => {
-  it('略過 undefined 與空陣列欄位', () => {
+  it('undefined 欄位跳過，空陣列照實輸出成 key: []', () => {
     const fm = serializeFrontmatter([
       ['title', 'A'],
       ['author', undefined],
       ['tags', []],
     ])
-    expect(fm).toBe('---\ntitle: A\n---')
+    expect(fm).toBe('---\ntitle: A\ntags: []\n---')
   })
 
   it('陣列以行內陣列輸出，供 hyday 手寫解析器讀', () => {

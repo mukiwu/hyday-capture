@@ -27,10 +27,16 @@ function fallbackStemFromUrl(url: string): string {
   }
 }
 
+// 檔名長度上限，留餘裕給碰撞後綴與副檔名，避免超過作業系統的檔名限制
+const MAX_STEM_LENGTH = 120
+
 /** 把標題整理成檔案系統安全、且不會被 hyday 誤判成 journal 的檔名主幹 */
 export function safeFileStem(title: string, fallbackUrl: string): string {
   let stem = cleanForFilename(title ?? '')
   if (stem === '') stem = fallbackStemFromUrl(fallbackUrl)
+  if (stem.length > MAX_STEM_LENGTH) {
+    stem = stem.slice(0, MAX_STEM_LENGTH).replace(/[. ]+$/, '')
+  }
   if (DATE_LIKE_NAME.test(stem)) stem = `${stem} capture`
   return stem
 }

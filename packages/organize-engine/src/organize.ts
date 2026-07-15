@@ -18,6 +18,8 @@ export async function organize(input: OrganizeInput): Promise<OrganizeOutput> {
   const frontmatter = serializeFrontmatter([
     ['title', title],
     ['type', type],
+    // spec §128 要求至少含 tags；issue #6 的錨定式下標會填入內容，這裡先出空陣列
+    ['tags', []],
     ['createdAt', timestamp],
     ['lastModified', timestamp],
     ['sourceUrl', extracted.url],

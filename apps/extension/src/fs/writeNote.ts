@@ -1,6 +1,6 @@
 /**
  * 用 File System Access API 把整理好的 .md 寫進使用者選定的資料夾。
- * 這是薄薄的瀏覽器 adapter，純邏輯在 note/buildNote.ts。
+ * 這是薄薄的瀏覽器 adapter，檔名與碰撞後綴等純邏輯在 @hyday-capture/organize-engine。
  */
 import { appendCollisionSuffix, type OrganizeOutput } from '@hyday-capture/organize-engine'
 

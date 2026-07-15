@@ -36,7 +36,12 @@ async function showCurrent(): Promise<void> {
 async function pickFolder(): Promise<void> {
   try {
     const handle = await window.showDirectoryPicker({ mode: 'readwrite' })
-    await ensureReadWritePermission(handle)
+    const granted = await ensureReadWritePermission(handle)
+    if (!granted) {
+      // 沒拿到寫入權就存 handle，之後每次擷取都會失敗，使用者卻以為設好了
+      setCurrent('err', '沒有取得寫入權限，資料夾未儲存，請再選一次並允許寫入')
+      return
+    }
     await saveOutputDirHandle(handle)
     await showCurrent()
   } catch (err) {

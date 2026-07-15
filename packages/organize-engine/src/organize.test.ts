@@ -34,6 +34,8 @@ describe('organize', () => {
     const fm = markdown.slice(0, markdown.indexOf('\n---', 4) + 4)
     expect(fm).toContain('title: Hello World')
     expect(fm).toContain('type: article')
+    // spec §128：至少含 tags；issue #6 前先出空陣列
+    expect(fm).toContain('tags: []')
     expect(fm).toContain('createdAt: 2026-07-15 09:30:05')
     expect(fm).toContain('lastModified: 2026-07-15 09:30:05')
     expect(fm).toContain('sourceUrl: https://example.com/blog/hello')

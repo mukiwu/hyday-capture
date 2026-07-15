@@ -25,7 +25,7 @@ async function extract(): Promise<ExtractedContent> {
   return {
     url: location.href,
     domain: clean(result.domain) ?? location.hostname,
-    title: clean(result.title) ?? document.title ?? location.href,
+    title: clean(result.title) ?? clean(document.title) ?? location.href,
     contentMarkdown: result.content ?? '',
     author: clean(result.author),
     published: clean(result.published),
@@ -34,12 +34,22 @@ async function extract(): Promise<ExtractedContent> {
   }
 }
 
+/**
+ * content script 的訊息分派表。之後的 issue（例如模板引擎的 CSS selector 取值）
+ * 新增 message 型別時，在這裡加一個 handler，不要改動既有分派，避免多個並行擴充撞協定。
+ */
+const handlers: Record<string, () => Promise<unknown>> = {
+  HYDAY_EXTRACT: extract,
+}
+
 chrome.runtime.onMessage.addListener(
-  (message: ExtractMessage, _sender, sendResponse: (r: ExtractResponse) => void) => {
-    if (message?.type !== 'HYDAY_EXTRACT') return
-    extract().then(
-      (data) => sendResponse({ ok: true, data }),
-      (err: unknown) => sendResponse({ ok: false, error: err instanceof Error ? err.message : String(err) }),
+  (message: { type?: string }, _sender, sendResponse: (r: ExtractResponse) => void) => {
+    const handler = message?.type ? handlers[message.type] : undefined
+    if (!handler) return // 不是我們的訊息，讓其他 listener 處理，不佔用回應通道
+    handler().then(
+      (data) => sendResponse({ ok: true, data: data as ExtractedContent }),
+      (err: unknown) =>
+        sendResponse({ ok: false, error: err instanceof Error ? err.message : String(err) }),
     )
     return true // 非同步回應
   },
