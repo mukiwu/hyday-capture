@@ -19,5 +19,14 @@
       "run_at": "document_idle"
     }
   ],
-  "permissions": ["tabs", "storage"]
+  "commands": {
+    "capture-page": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+S",
+        "mac": "Command+Shift+S"
+      },
+      "description": "擷取當前頁面到 hyday"
+    }
+  },
+  "permissions": ["tabs", "storage", "contextMenus"]
 }
