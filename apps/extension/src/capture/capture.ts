@@ -7,6 +7,7 @@ import { getOutputDirHandle } from '../storage/dirHandle'
 import { ensureReadWritePermission, writeNoteToDir, type WriteResult } from '../fs/writeNote'
 import { requestExtraction } from '../extract/requestExtraction'
 import { noopAI } from '../ai/noopAI'
+import { scanTagVocabulary } from '../tags/scanVocabulary'
 
 export type CaptureErrorCode =
   | 'NO_OUTPUT_DIR'
@@ -49,7 +50,9 @@ export async function captureActiveTab(): Promise<WriteResult> {
   const tab = await getActiveTab()
   const extracted = await requestExtraction(tab.id)
   const now = new Date()
-  const note = await organize({ extracted, ai: noopAI, now })
+  // issue #6：掃輸出資料夾既有標籤詞彙，餵給引擎的錨定式下標；掃描失敗不擋擷取
+  const tagVocabulary = await scanTagVocabulary(dir).catch(() => [] as string[])
+  const note = await organize({ extracted, ai: noopAI, now, tagVocabulary })
   return writeNoteToDir(dir, note, now)
 }
 
