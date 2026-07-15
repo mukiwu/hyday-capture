@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>hyday-capture</title>
+    <style>
+      body {
+        font-family: system-ui, -apple-system, sans-serif;
+        width: 280px;
+        margin: 0;
+        padding: 16px;
+        font-size: 14px;
+      }
+      h1 {
+        font-size: 15px;
+        margin: 0 0 12px;
+      }
+      #status {
+        line-height: 1.5;
+      }
+      .ok {
+        color: #147a3d;
+      }
+      .err {
+        color: #b3261e;
+      }
+      .muted {
+        color: #666;
+      }
+      code {
+        background: #f0f0f0;
+        padding: 1px 4px;
+        border-radius: 3px;
+        word-break: break-all;
+      }
+      button {
+        margin-top: 12px;
+        font-size: 13px;
+        padding: 6px 10px;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>hyday-capture</h1>
+    <div id="status" class="muted">擷取中…</div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

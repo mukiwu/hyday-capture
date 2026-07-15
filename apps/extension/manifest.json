@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "hyday-capture",
+  "version": "0.1.0",
+  "description": "一鍵把當前網頁擷取成 hyday 能吃的 Markdown 筆記，落進你本機的 vault",
+  "action": {
+    "default_title": "擷取到 hyday",
+    "default_popup": "src/popup/index.html"
+  },
+  "options_page": "src/options/index.html",
+  "background": {
+    "service_worker": "src/background/index.ts",
+    "type": "module"
+  },
+  "permissions": ["tabs", "storage"]
+}
