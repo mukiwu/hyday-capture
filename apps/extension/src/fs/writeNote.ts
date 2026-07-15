@@ -2,7 +2,7 @@
  * 用 File System Access API 把整理好的 .md 寫進使用者選定的資料夾。
  * 這是薄薄的瀏覽器 adapter，純邏輯在 note/buildNote.ts。
  */
-import { appendCollisionSuffix, type BuiltNote } from '../note/buildNote'
+import { appendCollisionSuffix, type OrganizeOutput } from '@hyday-capture/organize-engine'
 
 export type WriteResult = {
   filename: string
@@ -34,7 +34,7 @@ async function fileExists(dir: FileSystemDirectoryHandle, name: string): Promise
  */
 export async function writeNoteToDir(
   dir: FileSystemDirectoryHandle,
-  note: BuiltNote,
+  note: OrganizeOutput,
   capturedAt: Date,
 ): Promise<WriteResult> {
   let filename = note.filename

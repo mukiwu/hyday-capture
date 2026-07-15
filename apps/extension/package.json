@@ -9,6 +9,10 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
+  "dependencies": {
+    "@hyday-capture/organize-engine": "workspace:*",
+    "defuddle": "^0.19.1"
+  },
   "devDependencies": {
     "@crxjs/vite-plugin": "^2.7.1",
     "@types/chrome": "^0.2.2",

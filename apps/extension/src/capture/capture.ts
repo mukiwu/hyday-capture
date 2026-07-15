@@ -1,10 +1,12 @@
 /**
- * 擷取管線的骨架：抓當前分頁 → 產最小筆記 → 寫進輸出資料夾。
- * issue #3 之後這裡會改成呼叫整理引擎，入口保持不變。
+ * 擷取管線：抓當前分頁 → content script 用 Defuddle 抽取 → 整理引擎 organize → 落檔。
+ * 各入口（工具列、之後的右鍵與快捷鍵）都走這一條，產出一致。
  */
-import { buildCaptureNote } from '../note/buildNote'
+import { organize } from '@hyday-capture/organize-engine'
 import { getOutputDirHandle } from '../storage/dirHandle'
 import { ensureReadWritePermission, writeNoteToDir, type WriteResult } from '../fs/writeNote'
+import { requestExtraction } from '../extract/requestExtraction'
+import { noopAI } from '../ai/noopAI'
 
 export type CaptureErrorCode = 'NO_OUTPUT_DIR' | 'PERMISSION_DENIED' | 'NO_ACTIVE_TAB'
 
@@ -18,14 +20,12 @@ export class CaptureError extends Error {
   }
 }
 
-export type TabInfo = { title: string; url: string }
-
-async function getActiveTab(): Promise<TabInfo> {
+async function getActiveTab(): Promise<{ id: number; url: string }> {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-  if (!tab || !tab.url) {
+  if (!tab || tab.id === undefined || !tab.url) {
     throw new CaptureError('NO_ACTIVE_TAB', '找不到可擷取的分頁')
   }
-  return { title: tab.title ?? tab.url, url: tab.url }
+  return { id: tab.id, url: tab.url }
 }
 
 /** 擷取當前分頁並落檔，回傳最終寫入的檔名 */
@@ -38,8 +38,9 @@ export async function captureActiveTab(): Promise<WriteResult> {
     throw new CaptureError('PERMISSION_DENIED', '沒有取得寫入資料夾的權限')
   }
 
-  const { title, url } = await getActiveTab()
-  const capturedAt = new Date()
-  const note = buildCaptureNote({ title, url, capturedAt })
-  return writeNoteToDir(dir, note, capturedAt)
+  const tab = await getActiveTab()
+  const extracted = await requestExtraction(tab.id)
+  const now = new Date()
+  const note = await organize({ extracted, ai: noopAI, now })
+  return writeNoteToDir(dir, note, now)
 }
