@@ -107,6 +107,24 @@ export function assetFileName(url: string, contentType?: string): string | null 
   return `${stem}-${shortHash(url)}.${ext}`
 }
 
+// 內容只有圖片（可含空白）的連結。社群平台把每張圖包一層照片檢視頁的連結，
+// 網址常含中括號（FB 的 __cft__ 追蹤參數），所以外層只以括號界定、不管中括號
+const LINKED_IMAGES_RE = /\[((?:\s*!\[[^\]]*\]\([^)]*\)\s*)+)\]\([^)]*\)/g
+
+/**
+ * 拆掉「只包著圖片」的外層連結。
+ *
+ * Hyday 讀 `[![](x.jpg)](url)` 會得到 p > a > img，而 img 在 Plate 是 block 元素、
+ * 塞在 inline 連結裡渲染不出來，畫面就是一塊空白（2026-07-26 FB 與 X 實測）。
+ * 拆掉也不只是繞過限制：那層連結是平台的照片檢視頁、還帶追蹤參數，對本機存檔沒價值，
+ * 圖片本身才是內容。連結裡除了圖還有文字就不動，那是有意義的連結。
+ */
+export function unwrapLinkedImages(markdown: string): string {
+  return mapOutsideFences(markdown, (chunk) =>
+    chunk.replace(LINKED_IMAGES_RE, (_whole, images: string) => images.trim()),
+  )
+}
+
 /** 把已下載的圖片網址改寫成 vault 相對路徑；沒對應到的原樣留著 */
 export function rewriteImageUrls(markdown: string, mapping: Record<string, string>): string {
   return mapOutsideFences(markdown, (chunk) =>

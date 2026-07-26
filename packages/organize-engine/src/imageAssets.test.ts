@@ -5,6 +5,7 @@ import {
   extensionForContentType,
   findRemoteImageUrls,
   rewriteImageUrls,
+  unwrapLinkedImages,
 } from './imageAssets'
 
 describe('findRemoteImageUrls', () => {
@@ -113,6 +114,43 @@ describe('assetFileName', () => {
   it('檔名有不安全字元時清掉', () => {
     const name = assetFileName('https://e.com/a/a:b*c.png')
     expect(name).not.toMatch(/[\\/:*?"<>|]/)
+  })
+})
+
+describe('unwrapLinkedImages', () => {
+  // 2026-07-26 踩過：FB／X 的圖片外面包一層照片檢視頁的連結，Hyday 讀進去會變成
+  // p > a > img，而 img 在 Plate 是 block 元素、塞在 inline 連結裡渲染不出來，畫面空白
+  it('圖片外層只有連結時把連結拆掉', () => {
+    const md = '[![圖片](https://cdn.e.com/a.jpg)](https://www.facebook.com/photo/?fbid=123)'
+    expect(unwrapLinkedImages(md)).toBe('![圖片](https://cdn.e.com/a.jpg)')
+  })
+
+  it('外層連結網址含中括號（FB 的追蹤參數）也拆得掉', () => {
+    const md = '[![](assets/a.jpg)](https://www.facebook.com/photo/?fbid=1&__cft__[0]=AZbBmn_eMW)'
+    expect(unwrapLinkedImages(md)).toBe('![](assets/a.jpg)')
+  })
+
+  it('一個連結包多張圖時全部拆出來', () => {
+    const md = '[![](a.jpg) ![頭像](b.jpg)](https://e.com/story/1)'
+    expect(unwrapLinkedImages(md)).toBe('![](a.jpg) ![頭像](b.jpg)')
+  })
+
+  it('連結裡除了圖還有文字就不動，那是有意義的連結', () => {
+    const md = '[![](a.jpg) 看照片](https://e.com/1)'
+    expect(unwrapLinkedImages(md)).toBe(md)
+  })
+
+  it('沒被連結包住的圖片不動', () => {
+    expect(unwrapLinkedImages('![a](x.jpg)')).toBe('![a](x.jpg)')
+  })
+
+  it('純文字連結不動', () => {
+    expect(unwrapLinkedImages('[看這裡](https://e.com/1)')).toBe('[看這裡](https://e.com/1)')
+  })
+
+  it('圍籬裡的不動', () => {
+    const md = '```md\n[![](a.jpg)](https://e.com/1)\n```'
+    expect(unwrapLinkedImages(md)).toBe(md)
   })
 })
 

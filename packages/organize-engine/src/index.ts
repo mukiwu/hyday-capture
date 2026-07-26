@@ -13,6 +13,7 @@ export {
   extensionForContentType,
   findRemoteImageUrls,
   rewriteImageUrls,
+  unwrapLinkedImages,
 } from './imageAssets'
 // organize 與模板、下標留著給 app 端接手時搬運，擷取流程已不再呼叫
 export { organize } from './organize'

@@ -3,7 +3,11 @@
  * Defuddle 需要 live DOM，所以只能在頁面 context 執行，這是瀏覽器專屬的薄 adapter。
  * Defuddle 以動態 import 延後載入，平常不擷取時不拖慢頁面。
  */
-import { applyParagraphBreaks, type ExtractedContent } from '@hyday-capture/organize-engine'
+import {
+  applyParagraphBreaks,
+  unwrapLinkedImages,
+  type ExtractedContent,
+} from '@hyday-capture/organize-engine'
 import { hardenParagraphs } from './hardenParagraphs'
 import { markPostBoundary } from './postBoundary'
 
@@ -100,7 +104,7 @@ async function extract(): Promise<ExtractedContent> {
     url: location.href,
     domain: clean(result.domain) ?? location.hostname,
     title: clean(result.title) ?? clean(document.title) ?? location.href,
-    contentMarkdown: applyParagraphBreaks(result.content ?? ''),
+    contentMarkdown: unwrapLinkedImages(applyParagraphBreaks(result.content ?? '')),
     author: clean(result.author),
     published: clean(result.published),
     description: clean(result.description),
