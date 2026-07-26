@@ -28,5 +28,6 @@
       "description": "擷取當前頁面到 hyday"
     }
   },
-  "permissions": ["tabs", "storage", "contextMenus"]
+  "permissions": ["tabs", "storage", "contextMenus"],
+  "host_permissions": ["<all_urls>"]
 }

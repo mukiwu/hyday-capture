@@ -1,25 +1,24 @@
 /**
- * 擷取管線：抓分頁 → content script 用 Defuddle 抽取 → 整理引擎 organize → 落檔。
- * 各入口（工具列 popup、右鍵、快捷鍵、選取）都經 buildNoteFromExtracted，
- * 套同一組模板、錨定式下標與落檔，產出一致。
+ * 擷取管線：抓分頁 → content script 用 Defuddle 抽取 → 排成原料檔 → 落檔到 clippings。
+ *
+ * 各入口（工具列 popup、右鍵、快捷鍵、選取）都走 buildRawClipping，產出一致。
+ * 這裡刻意不做整理：模板、概念標籤與 AI 都移交 hyday app 端（見 ADR 0002 改寫版），
+ * 所以管線裡沒有 loadTemplates／scanTagVocabulary／requestSelectors，那些模組留在
+ * repo 等 app 端接手時搬運。
  */
-import {
-  organize,
-  collectSelectorRefs,
-  type ExtractedContent,
-  type OrganizeOutput,
-} from '@hyday-capture/organize-engine'
+import { buildRawClipping, type ExtractedContent } from '@hyday-capture/organize-engine'
 import { getOutputDirHandle } from '../storage/dirHandle'
-import { ensureReadWritePermission, writeNoteToDir, type WriteResult } from '../fs/writeNote'
+import {
+  ensureReadWritePermission,
+  writeClippingToVault,
+  type WriteResult,
+} from '../fs/writeNote'
 import { requestExtraction } from '../extract/requestExtraction'
-import { requestSelectors } from '../extract/requestSelectors'
-import { loadTemplates } from '../templates/store'
-import { noopAI } from '../ai/noopAI'
-import { scanTagVocabulary } from '../tags/scanVocabulary'
+import { localizeImages } from './localizeImages'
+import { fetchImageDirect, type ImageFetcher } from '../net/imageFetch'
 
 export type CaptureErrorCode =
   | 'NO_OUTPUT_DIR'
-  | 'PERMISSION_DENIED'
   | 'NO_ACTIVE_TAB'
   // 背景入口（右鍵、快捷鍵）專用：SW 沒有 document，不能 requestPermission，
   // 權限還沒 granted 時用這個 code 讓呼叫端把使用者帶去有手勢的頁面重新授權
@@ -45,60 +44,70 @@ async function getActiveTab(): Promise<{ id: number; url: string }> {
   return { id: tab.id, url: tab.url }
 }
 
-/**
- * 各入口共用的整理步驟：套使用者模板（含 CSS selector 取值）、掃輸出資料夾的
- * 既有標籤詞彙餵給錨定式下標，交給引擎產出筆記。這是「各入口產出一致」的關鍵。
- *
- * @param tabIdForSelectors 有 live 分頁時傳入，供模板的 {{selector:...}} 取 DOM 值；
- *        連結擷取那類分頁已關閉的情形傳 undefined，略過 selector 取值。
- */
-async function buildNoteFromExtracted(
-  dir: FileSystemDirectoryHandle,
-  tabIdForSelectors: number | undefined,
-  extracted: ExtractedContent,
-  now: Date,
-): Promise<OrganizeOutput> {
-  const templates = await loadTemplates()
-
-  // 模板可能引用 CSS selector，需要 live 分頁的 DOM 才能取值（引擎本身不碰 DOM）
-  if (tabIdForSelectors !== undefined) {
-    const refs = collectSelectorRefs(templates)
-    if (refs.selectors.length > 0 || refs.selectorsHtml.length > 0) {
-      const picked = await requestSelectors(tabIdForSelectors, refs)
-      extracted.selectors = { ...(extracted.selectors ?? {}), ...picked.selectors }
-      extracted.selectorsHtml = { ...(extracted.selectorsHtml ?? {}), ...picked.selectorsHtml }
-    }
-  }
-
-  // 錨定式下標的詞彙來自輸出資料夾既有筆記；掃描失敗不擋擷取，退回空詞彙
-  const tagVocabulary = await scanTagVocabulary(dir).catch(() => [] as string[])
-
-  return organize({ extracted, ai: noopAI, now, tagVocabulary, templates })
-}
-
-/** 工具列入口：擷取當前分頁並落檔，回傳最終寫入的檔名 */
-export async function captureActiveTab(): Promise<WriteResult> {
+/** 取回已選的 vault 資料夾 handle，沒選過就丟 NO_OUTPUT_DIR */
+export async function getVaultDir(): Promise<FileSystemDirectoryHandle> {
   const dir = await getOutputDirHandle()
   if (!dir) {
-    throw new CaptureError('NO_OUTPUT_DIR', '尚未選擇輸出資料夾，請先到設定頁選一個')
+    throw new CaptureError('NO_OUTPUT_DIR', '尚未選擇 hyday vault 資料夾，請先到設定頁選一個')
   }
-  if (!(await ensureReadWritePermission(dir))) {
-    throw new CaptureError('PERMISSION_DENIED', '沒有取得寫入資料夾的權限')
-  }
+  return dir
+}
 
+/** 只查不請求，判斷現在能不能直接寫 */
+export async function hasWritePermission(dir: FileSystemDirectoryHandle): Promise<boolean> {
+  return (await dir.queryPermission({ mode: 'readwrite' })) === 'granted'
+}
+
+/**
+ * 請求寫入權限。**必須在使用者的點擊 handler 裡呼叫，而且要是該 handler 的第一個 await**：
+ * File System Access 的 requestPermission 需要 user activation，而 activation 是短暫的、
+ * 前面先 await 別的東西就會過期。popup 一開啟就自動擷取的時機點沒有 activation，
+ * 直接呼叫會拿到 `User activation is required to request permissions`
+ * （2026-07-26 踩過：重載擴充會把資料夾權限重設成 prompt，於是每次開 popup 都失敗）
+ */
+export async function requestWritePermission(dir: FileSystemDirectoryHandle): Promise<boolean> {
+  return ensureReadWritePermission(dir)
+}
+
+/**
+ * 工具列入口：擷取當前分頁並落檔，回傳最終寫入的檔名。
+ * 呼叫端要先確認 hasWritePermission，這支不請求權限（理由見 requestWritePermission）。
+ *
+ * @param fetchImage 圖片下載的實作。popup 走 SW 代發、SW 自己直接下載，見 net/imageFetch
+ */
+export async function captureActiveTab(
+  dir: FileSystemDirectoryHandle,
+  fetchImage: ImageFetcher,
+): Promise<WriteResult> {
   const tab = await getActiveTab()
   // 於擷取起點取時間，與背景入口一致（createdAt 反映擷取當下，不受抽取耗時影響）
   const now = new Date()
   const extracted = await requestExtraction(tab.id)
-  const note = await buildNoteFromExtracted(dir, tab.id, extracted, now)
-  return writeNoteToDir(dir, note, now)
+  return writeClipping(dir, extracted, now, false, fetchImage)
+}
+
+/** 兩條入口共用的收尾：圖片本機化、排成原料檔、落檔 */
+async function writeClipping(
+  dir: FileSystemDirectoryHandle,
+  extracted: ExtractedContent,
+  now: Date,
+  selectionOnly: boolean,
+  fetchImage: ImageFetcher,
+): Promise<WriteResult> {
+  const localized = await localizeImages(extracted.contentMarkdown, dir, fetchImage)
+  const clipping = buildRawClipping({
+    extracted: { ...extracted, contentMarkdown: localized.markdown },
+    now,
+    selectionOnly,
+  })
+  return writeClippingToVault(dir, clipping, now)
 }
 
 // ── issue #7：右鍵選單、快捷鍵等在 background service worker 觸發的入口 ──
 // SW 沒有 document，不能呼叫 File System Access 的 requestPermission（需要手勢 + document）。
 // 策略：只 queryPermission，已 granted 就直接在 SW 走完整條管線落檔；
 // 還沒授權則丟 PERMISSION_PROMPT_REQUIRED，交由 background 把使用者帶去設定頁重新授權。
-// 整理與落檔沿用 buildNoteFromExtracted / writeNoteToDir，與工具列入口產出一致。
+// 原料檔與落檔沿用 buildRawClipping / writeClippingToVault，與工具列入口產出一致。
 
 export type CaptureOptions = {
   /** 目標分頁 id；省略則自動抓當前 active 分頁 */
@@ -113,7 +122,7 @@ export type CaptureOptions = {
 async function resolveOutputDirWithoutPrompt(): Promise<FileSystemDirectoryHandle> {
   const dir = await getOutputDirHandle()
   if (!dir) {
-    throw new CaptureError('NO_OUTPUT_DIR', '尚未選擇輸出資料夾，請先到設定頁選一個')
+    throw new CaptureError('NO_OUTPUT_DIR', '尚未選擇 hyday vault 資料夾，請先到設定頁選一個')
   }
   if ((await dir.queryPermission({ mode: 'readwrite' })) !== 'granted') {
     throw new CaptureError(
@@ -190,7 +199,7 @@ async function extractFromLink(linkUrl: string): Promise<ExtractedContent> {
 }
 
 /**
- * 背景入口（右鍵、快捷鍵）的擷取管線。與工具列入口共用整理與落檔，
+ * 背景入口（右鍵、快捷鍵）的擷取管線。與工具列入口共用原料檔與落檔，
  * 差別只在權限採「只查不請求」，且支援擷取選取內容或連結。
  */
 export async function captureFromBackground(opts: CaptureOptions): Promise<WriteResult> {
@@ -199,19 +208,15 @@ export async function captureFromBackground(opts: CaptureOptions): Promise<Write
   const now = new Date()
 
   if (opts.linkUrl) {
-    // 連結擷取用的暫存分頁在 extractFromLink 內開了又關，這裡拿不到 live tab，
-    // 略過 selector 取值（多數模板用不到）；模板選擇與錨定下標照常。
+    // 連結擷取是整頁擷取（使用者選的是連結不是段落），型別照網址啟發式判
     const extracted = await extractFromLink(opts.linkUrl)
-    const note = await buildNoteFromExtracted(dir, undefined, extracted, now)
-    return writeNoteToDir(dir, note, now)
+    return writeClipping(dir, extracted, now, false, fetchImageDirect)
   }
 
+  const selectionOnly = Boolean(opts.selectionOnly)
   const tabId = opts.tabId ?? (await getActiveTab()).id
-  const extracted = await requestExtraction(tabId, {
-    selectionOnly: Boolean(opts.selectionOnly),
-  })
-  const note = await buildNoteFromExtracted(dir, tabId, extracted, now)
-  return writeNoteToDir(dir, note, now)
+  const extracted = await requestExtraction(tabId, { selectionOnly })
+  return writeClipping(dir, extracted, now, selectionOnly, fetchImageDirect)
 }
 
 /** background 判斷這個錯誤是否該把使用者帶去有手勢的設定頁（而非單純報錯） */

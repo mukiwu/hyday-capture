@@ -27,8 +27,10 @@ function fallbackStemFromUrl(url: string): string {
   }
 }
 
-// 檔名長度上限，留餘裕給碰撞後綴與副檔名，避免超過作業系統的檔名限制
-const MAX_STEM_LENGTH = 120
+// 檔名長度上限，留餘裕給碰撞後綴與副檔名，避免超過作業系統的檔名限制。
+// 60 是可讀性上限不是系統上限：社群貼文的分頁標題就是整篇內容，X 實測會產出
+// 121 字的檔名（2026-07-26 踩過），在 Finder 與筆記列表都難認
+const MAX_STEM_LENGTH = 60
 
 /** 把標題整理成檔案系統安全、且不會被 hyday 誤判成 journal 的檔名主幹 */
 export function safeFileStem(title: string, fallbackUrl: string): string {

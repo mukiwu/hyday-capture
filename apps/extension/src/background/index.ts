@@ -17,6 +17,11 @@ import {
   planFromCommand,
   type CapturePlan,
 } from '../capture/plan'
+import {
+  FETCH_IMAGE_MESSAGE,
+  handleFetchImageMessage,
+  type FetchImageRequest,
+} from '../net/imageFetch'
 
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === 'install') {
@@ -46,6 +51,14 @@ function createContextMenus(): void {
     })
   })
 }
+
+// popup 與 content script 直接跨網域抓圖會被目標站的 CORS 擋掉（圖片 CDN 多半不送
+// Access-Control-Allow-Origin），由這裡帶著 host_permissions 代發，見 net/imageFetch
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if ((message as FetchImageRequest)?.type !== FETCH_IMAGE_MESSAGE) return undefined
+  void handleFetchImageMessage((message as FetchImageRequest).url).then(sendResponse)
+  return true // 非同步回覆，保持訊息通道開著
+})
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   const plan = planFromContextMenu(info)

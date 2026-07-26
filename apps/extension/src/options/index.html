@@ -108,42 +108,17 @@
   <body>
     <h1>hyday-capture 設定</h1>
     <div class="card">
-      <strong>輸出資料夾</strong>
+      <strong>hyday vault 資料夾</strong>
       <p class="muted">
-        選一個資料夾，擷取的筆記會寫進這裡，通常就是你的 hyday vault。之後每次擷取都會自動寫入，
-        瀏覽器詢問權限時請選每次都允許。
+        選你的 hyday vault 資料夾。擷取的內容會寫進它底下的 <code>clippings</code>，
+        資料夾不存在會自動建立。之後每次擷取都會自動寫入，瀏覽器詢問權限時請選每次都允許。
       </p>
-      <button id="pick" class="primary">選擇輸出資料夾</button>
+      <button id="pick" class="primary">選擇 hyday vault 資料夾</button>
       <div id="current" class="muted">尚未選擇資料夾</div>
       <p class="hint">
-        提示：筆記不會寫進 <code>.hyday</code>、<code>templates</code>、<code>assets</code>，
-        也不會用日期當檔名，避免被 hyday 誤認成 journal。
+        擷取進來的每一則都會帶 <code>inbox</code> 標籤，等你在 hyday 裡叫 Hyday 整理；
+        整理完牠會加上 <code>ai/organized</code>，<code>inbox</code> 要不要拿掉由你決定。
       </p>
-    </div>
-
-    <div class="card">
-      <strong>模板</strong>
-      <p class="muted">
-        用 JSON 編輯你的模板組，第一個 trigger 命中的模板勝出，皆不中則用最上面那組。
-        body 與 property 的值可用 <code>{{變數}}</code>，例如
-        <code>{{title}}</code>、<code>{{content}}</code>、<code>{{author}}</code>、
-        <code>{{published|date:"YYYY-MM-DD"}}</code>、<code>{{selectorHtml:.price|markdown}}</code>。
-      </p>
-
-      <label for="templates">模板（JSON）</label>
-      <textarea id="templates" rows="16" spellcheck="false"></textarea>
-
-      <div class="row">
-        <button id="save" class="primary">儲存模板</button>
-        <button id="reset">重設為預設</button>
-      </div>
-      <div id="tplStatus" class="hint"></div>
-
-      <label for="sampleUrl">預覽用的來源網址（決定選到哪組模板）</label>
-      <input id="sampleUrl" type="text" value="https://example.com/blog/hello" />
-      <div class="picked">選中模板：<code id="pickedName">—</code></div>
-      <label>輸出預覽</label>
-      <pre id="preview" class="preview"></pre>
     </div>
 
     <script type="module" src="./main.ts"></script>

@@ -146,10 +146,10 @@ describe('renderTemplate（frontmatter 產生與 body）', () => {
     expect(md.startsWith('---\n')).toBe(true)
     expect(md).toContain('title: Hello World')
     expect(md).toContain('type: article')
-    expect(md).toContain('createdAt: 2026-07-15 09:30:05')
-    expect(md).toContain('published: 2026-07-01')
-    // 時間戳與網址不被引號包住
-    expect(md).not.toContain('"2026-07-15 09:30:05"')
+    expect(md).toContain('createdAt: "2026-07-15 09:30:05"')
+    expect(md).toContain('published: "2026-07-01"')
+    // 時間戳一律加引號（與 hyday 自己寫檔一致），網址不加
+    expect(md).toContain('"2026-07-15 09:30:05"')
     expect(md).toContain('source: https://example.com/blog/hello')
     // number 是純量不加引號
     expect(md).toContain('wordy: 42')

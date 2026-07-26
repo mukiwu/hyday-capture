@@ -36,12 +36,12 @@ describe('organize', () => {
     expect(fm).toContain('type: article')
     // spec §128：至少含 tags；issue #6 前先出空陣列
     expect(fm).toContain('tags: []')
-    expect(fm).toContain('createdAt: 2026-07-15 09:30:05')
-    expect(fm).toContain('lastModified: 2026-07-15 09:30:05')
+    expect(fm).toContain('createdAt: "2026-07-15 09:30:05"')
+    expect(fm).toContain('lastModified: "2026-07-15 09:30:05"')
     expect(fm).toContain('sourceUrl: https://example.com/blog/hello')
     expect(fm).toContain('sourceDomain: example.com')
-    // 時間戳不被引號包住
-    expect(fm).not.toContain('"2026-07-15 09:30:05"')
+    // 時間戳一律加引號，避免 YAML 把它 coerce 成 timestamp 型別（與 hyday 自己寫檔一致）
+    expect(fm).toContain('"2026-07-15 09:30:05"')
     // 網址不被引號包住
     expect(fm).not.toContain('"https://example.com/blog/hello"')
   })

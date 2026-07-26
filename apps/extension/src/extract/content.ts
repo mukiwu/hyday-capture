@@ -3,7 +3,9 @@
  * Defuddle 需要 live DOM，所以只能在頁面 context 執行，這是瀏覽器專屬的薄 adapter。
  * Defuddle 以動態 import 延後載入，平常不擷取時不拖慢頁面。
  */
-import type { ExtractedContent } from '@hyday-capture/organize-engine'
+import { applyParagraphBreaks, type ExtractedContent } from '@hyday-capture/organize-engine'
+import { hardenParagraphs } from './hardenParagraphs'
+import { markPostBoundary } from './postBoundary'
 
 export type ExtractMessage =
   | { type: 'HYDAY_EXTRACT' }
@@ -67,11 +69,29 @@ function collectSchemaOrgTypes(): string[] {
 }
 
 async function extract(): Promise<ExtractedContent> {
-  const { default: Defuddle } = await import('defuddle')
-  const result = new Defuddle(document, {
-    url: location.href,
-    markdown: true, // content 直接輸出 Markdown
-  }).parse()
+  // 必須是 `defuddle/full`：markdown 轉換器（內部走 turndown）只打包在 full 入口，
+  // core 入口的型別同樣接受 markdown: true 但執行時直接忽略，落地會變成一坨 HTML
+  // （2026-07-26 踩過：Substack 與 X 擷取回來的全文是單行 HTML，段落是 <br>）。
+  // 轉換需要全域 document.implementation.createHTMLDocument，content script 有。
+  const { default: Defuddle } = await import('defuddle/full')
+  // 分段流失的一般解：抽取前把「視覺上是分段、結構上不是」的邊界標成文字標記，
+  // 轉完 markdown 再換成空行分段。pre-wrap 的真換行一定要在這一步處理，抽取器會把它
+  // 正規化成空格、之後救不回來。詳見 hardenParagraphs 與引擎的 paragraphBreaks
+  const restoreDom = hardenParagraphs(document)
+  // feed 型網站（FB、Threads 這類）的永久連結頁，DOM 裡同時有目標貼文與整片動態消息，
+  // 內容評分很容易挑錯。用「指向當前網址的連結」標出目標貼文交給抽取器，見 postBoundary
+  const boundary = markPostBoundary(document, location.href)
+  let result: ReturnType<InstanceType<typeof Defuddle>['parse']>
+  try {
+    result = new Defuddle(document, {
+      url: location.href,
+      markdown: true, // content 直接輸出 Markdown
+      contentSelector: boundary.selector,
+    }).parse()
+  } finally {
+    boundary.restore()
+    restoreDom()
+  }
 
   const schemaOrgTypes = collectSchemaOrgTypes()
   const meta = collectMeta()
@@ -80,7 +100,7 @@ async function extract(): Promise<ExtractedContent> {
     url: location.href,
     domain: clean(result.domain) ?? location.hostname,
     title: clean(result.title) ?? clean(document.title) ?? location.href,
-    contentMarkdown: result.content ?? '',
+    contentMarkdown: applyParagraphBreaks(result.content ?? ''),
     author: clean(result.author),
     published: clean(result.published),
     description: clean(result.description),

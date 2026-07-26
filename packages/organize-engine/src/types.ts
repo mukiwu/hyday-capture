@@ -7,10 +7,11 @@ import type { Template } from './template/types'
 export type AICaller = (prompts: string[], context: string) => Promise<string[]>
 
 /**
- * hyday 內建型別中，hyday-capture 只自動判這三種。
- * card 與 link 不自動判，交給使用者在 hyday 自行調整。
+ * hyday 內建型別中，hyday-capture 會產出這四種。
+ * img 與 video 由網址啟發式判定、card 是選取擷取、其餘一律 article；
+ * link 不自動判，交給使用者在 hyday 自行調整。
  */
-export type NoteType = 'img' | 'video' | 'article'
+export type NoteType = 'img' | 'video' | 'article' | 'card'
 
 /** Defuddle（或其他宿主的抽取器）產出的頁面資料，是引擎的輸入 */
 export type ExtractedContent = {

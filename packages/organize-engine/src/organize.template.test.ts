@@ -42,7 +42,7 @@ describe('organize 接上模板引擎', () => {
   it('未提供 templates 時走預設行為（既有輸出不變）', async () => {
     const { markdown } = await organize({ extracted: fixture(), ai: fakeAI, now })
     expect(markdown).toContain('tags: []')
-    expect(markdown).toContain('createdAt: 2026-07-15 09:30:05')
+    expect(markdown).toContain('createdAt: "2026-07-15 09:30:05"')
   })
 
   it('提供 templates 時依 trigger 選模板產出', async () => {
@@ -69,7 +69,7 @@ describe('organize 接上模板引擎', () => {
       templates: [articleTemplate, threadsTemplate],
     })
     expect(markdown).toContain('title: Hello World')
-    expect(markdown).toContain('createdAt: 2026-07-15 09:30:05')
+    expect(markdown).toContain('createdAt: "2026-07-15 09:30:05"')
     // 檔名仍取自標題
     expect(filename).toBe('Hello World.md')
   })

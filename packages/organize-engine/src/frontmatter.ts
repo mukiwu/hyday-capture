@@ -17,14 +17,21 @@ export function formatTimestamp(d: Date): string {
   )
 }
 
+// 日期或日期時間形狀的值。標準 YAML 會把這些 coerce 成 timestamp 型別，
+// hyday 自己的手寫解析器雖然一律當字串，但 hyday 寫檔時是加引號的
+// （見 v1 noteService 的 frontmatter 序列化，vault 裡 350 篇都是引號形），
+// 外部工具寫出跟 app 自己不同的形狀會變成雜訊，所以這類值一律加引號
+const DATE_LIKE_VALUE = /^\d{4}-\d{2}-\d{2}([ T].*)?$/
+
 /**
  * 只在值會被 YAML 誤解時才加雙引號（冒號加空白、行首指示字元等），
- * 一般網址的 :// 與時間戳的 09:30:05 不會被引號包住。
- * 值裡的雙引號與反斜線做跳脫。
+ * 一般網址的 :// 不會被引號包住；日期與時間戳一律加引號，理由見
+ * DATE_LIKE_VALUE 的註解。值裡的雙引號與反斜線做跳脫。
  */
 export function yamlScalar(value: string): string {
   const needsQuote =
     value === '' ||
+    DATE_LIKE_VALUE.test(value) ||
     /^\s|\s$/.test(value) || // 前後空白
     /[\r\n]/.test(value) || // 含換行，一定要用引號字串攤平成一行
     /^[!&*[\]{},#|>@`"'%]/.test(value) || // 不可作為 plain scalar 開頭的指示字元
@@ -50,16 +57,30 @@ function serializeValue(value: FrontmatterValue): string {
 }
 
 /**
+ * 陣列的兩種寫法。inline 是 `key: [a, b]`，block 是 key 換行加縮排 `- a`。
+ * 兩種 hyday 的 noteIndex 都讀得懂，但 v2 屬性面板的 parseFrontmatterEntries
+ * 只認 block（inline 會被讀成字串），使用者 vault 既有筆記也都是 block，
+ * 所以新寫的檔案用 block；inline 保留為預設，既有呼叫端行為不變。
+ */
+export type ArrayStyle = 'inline' | 'block'
+
+/**
  * 依序列化欄位。只有 undefined 會被略過；空陣列照實輸出成 `key: []`，
  * 讓「不要這個鍵」與「這個鍵是空陣列」語義分明（issue #6 的 tags 需要這個區別）。
  * 回傳含頭尾 --- 的完整 frontmatter 區塊。
  */
 export function serializeFrontmatter(
   fields: Array<readonly [string, FrontmatterValue | undefined]>,
+  opts: { arrayStyle?: ArrayStyle } = {},
 ): string {
   const lines = ['---']
   for (const [key, value] of fields) {
     if (value === undefined) continue
+    if (opts.arrayStyle === 'block' && Array.isArray(value) && value.length > 0) {
+      lines.push(`${key}:`)
+      for (const item of value) lines.push(`  - ${yamlScalar(item)}`)
+      continue
+    }
     lines.push(`${key}: ${serializeValue(value)}`)
   }
   lines.push('---')
