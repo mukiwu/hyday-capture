@@ -10,7 +10,7 @@
  */
 import { mapOutsideFences, scanOutsideFences } from './fences'
 
-/** 圖片落點，vault 底下的固定資料夾。Hyday 的 hyday-asset 協定只認 assets/ 開頭 */
+/** 圖片落點，vault 底下的固定資料夾；原料檔用 ../assets/ 指向它。 */
 export const ASSETS_DIR = 'assets'
 
 /** Hyday 供得出來的副檔名，與 v2 electron/vault.cjs 的 ASSET_MIME 對齊 */
@@ -132,7 +132,9 @@ export function rewriteImageUrls(markdown: string, mapping: Record<string, strin
       const name = mapping[url]
       if (!name) return whole
       const alt = whole.slice(0, whole.indexOf('](') + 1)
-      return `${alt}(${ASSETS_DIR}/${name}${title ?? ''})`
+      // 原料檔位於 vault/clippings，圖片位於 vault/assets；使用標準相對路徑，
+      // 讓一般 Markdown 閱讀器與 Hyday 都能解析到同一個檔案。
+      return `${alt}(../${ASSETS_DIR}/${name}${title ?? ''})`
     }),
   )
 }

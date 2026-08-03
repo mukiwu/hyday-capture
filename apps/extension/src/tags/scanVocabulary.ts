@@ -1,5 +1,5 @@
 /**
- * 詞彙掃描 adapter（issue #6，ADR 0004）。走訪輸出資料夾裡既有的 .md，
+ * 詞彙掃描 adapter（issue #6，ADR 0004）。走訪 vault 裡既有的 .md，
  * 從 frontmatter 的 tags 加內文的 #hashtag 組成標籤詞彙，餵給引擎的錨定式下標。
  * 不依賴 hyday 索引、不依賴 hyday 有裝，只讀一般 Markdown。
  *

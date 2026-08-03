@@ -15,7 +15,7 @@ export const MAX_NEW_TAGS = 1
 
 export type AnchoredTaggingInput = {
   extracted: ExtractedContent
-  /** 掃描輸出資料夾得到的既有標籤詞彙；優先沿用，未給則視為空詞彙、近似開放模式 */
+  /** 掃描 vault 得到的既有標籤詞彙；優先沿用，未給則視為空詞彙、近似開放模式 */
   vocabulary: string[]
   /** 注入的 AI；測試時為回固定候選的假實作 */
   ai: AICaller
@@ -103,7 +103,7 @@ export function applyAnchoredPolicy(
 function buildTaggingPrompts(vocabulary: string[]): string[] {
   const vocabLine = vocabulary.length
     ? `既有標籤詞彙（請優先沿用）：${vocabulary.join(', ')}`
-    : '輸出資料夾目前沒有既有標籤。'
+    : 'vault 目前沒有既有標籤。'
   return [
     [
       '為這篇內容挑選標籤。',

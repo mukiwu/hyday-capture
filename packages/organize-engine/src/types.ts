@@ -45,7 +45,7 @@ export type OrganizeInput = {
   /** 注入現在時間，讓 createdAt/lastModified 可預期 */
   now: Date
   /**
-   * 掃描輸出資料夾得到的既有標籤詞彙（issue #6）。錨定式下標優先沿用這裡的標籤；
+   * 掃描 vault 得到的既有標籤詞彙（issue #6）。錨定式下標優先沿用這裡的標籤；
    * 未給則視為空詞彙、近似開放模式。掃描屬瀏覽器 I/O，由擴充 adapter 提供，不進引擎。
    */
   tagVocabulary?: string[]

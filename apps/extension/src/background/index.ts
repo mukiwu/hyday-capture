@@ -25,7 +25,7 @@ import {
 
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === 'install') {
-    // 首次安裝先引導選輸出資料夾
+    // 首次安裝先引導選 hyday vault
     chrome.runtime.openOptionsPage()
   }
   // 安裝與更新都重建選單，避免 id 殘留或重複

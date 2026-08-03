@@ -41,7 +41,11 @@ describe('appendCollisionSuffix', () => {
     expect(out).toBe('v1.2 spec 20260715-093005.md')
   })
 
-  it('後綴讓連續兩次擷取不同名，不會互相覆蓋', () => {
-    expect(appendCollisionSuffix('A.md', at)).not.toBe('A.md')
-  })
+	it('後綴讓連續兩次擷取不同名，不會互相覆蓋', () => {
+		expect(appendCollisionSuffix('A.md', at)).not.toBe('A.md')
+	})
+
+	it('同一秒的第二個碰撞再加序號，避免重用同一個檔名', () => {
+		expect(appendCollisionSuffix('A.md', at, 1)).toBe('A 20260715-093005-1.md')
+	})
 })

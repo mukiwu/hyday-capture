@@ -155,16 +155,16 @@ describe('unwrapLinkedImages', () => {
 })
 
 describe('rewriteImageUrls', () => {
-  it('把遠端網址換成 vault 相對路徑', () => {
-    const md = '![圖片](https://e.com/1.png)'
-    const out = rewriteImageUrls(md, { 'https://e.com/1.png': 'photo-1234abcd.png' })
-    expect(out).toBe(`![圖片](${ASSETS_DIR}/photo-1234abcd.png)`)
-  })
+	it('把遠端網址換成 vault 相對路徑', () => {
+		const md = '![圖片](https://e.com/1.png)'
+		const out = rewriteImageUrls(md, { 'https://e.com/1.png': 'photo-1234abcd.png' })
+		expect(out).toBe(`![圖片](../${ASSETS_DIR}/photo-1234abcd.png)`)
+	})
 
   it('沒對應到的網址原樣留著，不要弄掉來源', () => {
     const md = '![a](https://e.com/1.png)\n![b](https://e.com/2.png)'
     const out = rewriteImageUrls(md, { 'https://e.com/1.png': 'x-1234abcd.png' })
-    expect(out).toContain(`${ASSETS_DIR}/x-1234abcd.png`)
+		expect(out).toContain(`../${ASSETS_DIR}/x-1234abcd.png`)
     expect(out).toContain('https://e.com/2.png')
   })
 
@@ -173,7 +173,7 @@ describe('rewriteImageUrls', () => {
     const out = rewriteImageUrls(md, {
       'https://pbs.twimg.com/media/A?format=jpg': 'A-abcd1234.jpg',
     })
-    expect(out).toBe(`[![圖](${ASSETS_DIR}/A-abcd1234.jpg)](https://x.com/a/photo/1)`)
+		expect(out).toBe(`[![圖](../${ASSETS_DIR}/A-abcd1234.jpg)](https://x.com/a/photo/1)`)
   })
 
   it('圍籬裡的不改', () => {
@@ -185,6 +185,6 @@ describe('rewriteImageUrls', () => {
     const out = rewriteImageUrls('![a](https://e.com/1.png "標題")', {
       'https://e.com/1.png': 'x-abcd1234.png',
     })
-    expect(out).toBe(`![a](${ASSETS_DIR}/x-abcd1234.png "標題")`)
+		expect(out).toBe(`![a](../${ASSETS_DIR}/x-abcd1234.png "標題")`)
   })
 })

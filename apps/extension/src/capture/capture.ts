@@ -7,7 +7,7 @@
  * repo 等 app 端接手時搬運。
  */
 import { buildRawClipping, type ExtractedContent } from '@hyday-capture/organize-engine'
-import { getOutputDirHandle } from '../storage/dirHandle'
+import { getVaultDirHandle } from '../storage/dirHandle'
 import {
   ensureReadWritePermission,
   writeClippingToVault,
@@ -46,7 +46,7 @@ async function getActiveTab(): Promise<{ id: number; url: string }> {
 
 /** 取回已選的 vault 資料夾 handle，沒選過就丟 NO_OUTPUT_DIR */
 export async function getVaultDir(): Promise<FileSystemDirectoryHandle> {
-  const dir = await getOutputDirHandle()
+  const dir = await getVaultDirHandle()
   if (!dir) {
     throw new CaptureError('NO_OUTPUT_DIR', '尚未選擇 hyday vault 資料夾，請先到設定頁選一個')
   }
@@ -78,12 +78,13 @@ export async function requestWritePermission(dir: FileSystemDirectoryHandle): Pr
 export async function captureActiveTab(
   dir: FileSystemDirectoryHandle,
   fetchImage: ImageFetcher,
+  userNote?: string,
 ): Promise<WriteResult> {
   const tab = await getActiveTab()
   // 於擷取起點取時間，與背景入口一致（createdAt 反映擷取當下，不受抽取耗時影響）
   const now = new Date()
   const extracted = await requestExtraction(tab.id)
-  return writeClipping(dir, extracted, now, false, fetchImage)
+  return writeClipping(dir, extracted, now, false, fetchImage, userNote)
 }
 
 /** 兩條入口共用的收尾：圖片本機化、排成原料檔、落檔 */
@@ -93,12 +94,14 @@ async function writeClipping(
   now: Date,
   selectionOnly: boolean,
   fetchImage: ImageFetcher,
+  userNote?: string,
 ): Promise<WriteResult> {
   const localized = await localizeImages(extracted.contentMarkdown, dir, fetchImage)
   const clipping = buildRawClipping({
     extracted: { ...extracted, contentMarkdown: localized.markdown },
     now,
     selectionOnly,
+    userNote,
   })
   return writeClippingToVault(dir, clipping, now)
 }
@@ -114,13 +117,15 @@ export type CaptureOptions = {
   tabId?: number
   /** 只擷取使用者在頁面上選取的內容，而非整頁 */
   selectionOnly?: boolean
+  /** 使用者擷取當下的選填隨手一句話 */
+  userNote?: string
   /** 右鍵點連結時的目標連結；提供時改為另開背景分頁擷取該連結，而非當前頁 */
   linkUrl?: string
 }
 
-/** 取回輸出資料夾，並在「不請求權限」的前提下確認已有寫入權（SW 專用） */
-async function resolveOutputDirWithoutPrompt(): Promise<FileSystemDirectoryHandle> {
-  const dir = await getOutputDirHandle()
+/** 取回 hyday vault，並在「不請求權限」的前提下確認已有寫入權（SW 專用） */
+async function resolveVaultDirWithoutPrompt(): Promise<FileSystemDirectoryHandle> {
+  const dir = await getVaultDirHandle()
   if (!dir) {
     throw new CaptureError('NO_OUTPUT_DIR', '尚未選擇 hyday vault 資料夾，請先到設定頁選一個')
   }
@@ -204,19 +209,19 @@ async function extractFromLink(linkUrl: string): Promise<ExtractedContent> {
  */
 export async function captureFromBackground(opts: CaptureOptions): Promise<WriteResult> {
   // 先確認資料夾與權限，沒過就別白開背景分頁
-  const dir = await resolveOutputDirWithoutPrompt()
+  const dir = await resolveVaultDirWithoutPrompt()
   const now = new Date()
 
   if (opts.linkUrl) {
-    // 連結擷取是整頁擷取（使用者選的是連結不是段落），型別照網址啟發式判
+    // 連結擷取是整頁擷取（使用者選的是連結不是段落）
     const extracted = await extractFromLink(opts.linkUrl)
-    return writeClipping(dir, extracted, now, false, fetchImageDirect)
+    return writeClipping(dir, extracted, now, false, fetchImageDirect, opts.userNote)
   }
 
   const selectionOnly = Boolean(opts.selectionOnly)
   const tabId = opts.tabId ?? (await getActiveTab()).id
   const extracted = await requestExtraction(tabId, { selectionOnly })
-  return writeClipping(dir, extracted, now, selectionOnly, fetchImageDirect)
+  return writeClipping(dir, extracted, now, selectionOnly, fetchImageDirect, opts.userNote)
 }
 
 /** background 判斷這個錯誤是否該把使用者帶去有手勢的設定頁（而非單純報錯） */

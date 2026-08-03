@@ -79,9 +79,10 @@ function normalizePublished(raw: string): string {
   return `${p(d.getFullYear(), 4)}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
 }
 
-/** 判定筆記類型：選取擷取一律 card，其餘照網址啟發式（img／video／article） */
+/** 判定原料檔筆記類型：選取是 card、圖片是 img，其餘先交給 app 整理成 article。 */
 function resolveNoteType(url: string, selectionOnly: boolean): NoteType {
-  return selectionOnly ? 'card' : detectNoteType(url)
+  if (selectionOnly) return 'card'
+  return detectNoteType(url) === 'img' ? 'img' : 'article'
 }
 
 /** 隨手一句話排成 markdown 引言，多行的每一行都加 `>` 免得破壞區塊 */

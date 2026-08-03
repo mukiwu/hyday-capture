@@ -1,6 +1,6 @@
 import {
-  getOutputDirHandle,
-  saveOutputDirHandle,
+  getVaultDirHandle,
+  saveVaultDirHandle,
 } from '../storage/dirHandle'
 import { ensureReadWritePermission } from '../fs/writeNote'
 
@@ -19,14 +19,14 @@ function code(text: string): HTMLElement {
 }
 
 async function showCurrent(): Promise<void> {
-  const handle = await getOutputDirHandle()
+  const handle = await getVaultDirHandle()
   if (!handle) {
     setCurrent('muted', '尚未選擇資料夾')
     return
   }
   const granted = (await handle.queryPermission({ mode: 'readwrite' })) === 'granted'
   if (granted) {
-    setCurrent('ok', '目前輸出資料夾：', code(handle.name))
+    setCurrent('ok', '目前 hyday vault：', code(handle.name))
     return
   }
 
@@ -44,7 +44,7 @@ async function showCurrent(): Promise<void> {
   })
   setCurrent(
     'muted',
-    '目前輸出資料夾：',
+    '目前 hyday vault：',
     code(handle.name),
     '（寫入權限尚未取得）',
     document.createElement('br'),
@@ -61,7 +61,7 @@ async function pickFolder(): Promise<void> {
       setCurrent('err', '沒有取得寫入權限，資料夾未儲存，請再選一次並允許寫入')
       return
     }
-    await saveOutputDirHandle(handle)
+    await saveVaultDirHandle(handle)
     await showCurrent()
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') return // 使用者取消

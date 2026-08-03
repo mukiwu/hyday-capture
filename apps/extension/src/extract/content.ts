@@ -3,13 +3,11 @@
  * Defuddle 需要 live DOM，所以只能在頁面 context 執行，這是瀏覽器專屬的薄 adapter。
  * Defuddle 以動態 import 延後載入，平常不擷取時不拖慢頁面。
  */
-import {
-  applyParagraphBreaks,
-  unwrapLinkedImages,
-  type ExtractedContent,
-} from '@hyday-capture/organize-engine'
+import type { ExtractedContent } from '@hyday-capture/organize-engine'
 import { hardenParagraphs } from './hardenParagraphs'
 import { markPostBoundary } from './postBoundary'
+import { normalizeExtractedMarkdown } from './contentExtraction'
+import { buildSelectionExtractedContent, type ExtractedPageMetadata } from './selection'
 
 export type ExtractMessage =
   | { type: 'HYDAY_EXTRACT' }
@@ -72,7 +70,12 @@ function collectSchemaOrgTypes(): string[] {
   return [...out]
 }
 
-async function extract(): Promise<ExtractedContent> {
+type ParsedPage = {
+  contentMarkdown: string
+  metadata: ExtractedPageMetadata
+}
+
+async function parsePage(): Promise<ParsedPage> {
   // 必須是 `defuddle/full`：markdown 轉換器（內部走 turndown）只打包在 full 入口，
   // core 入口的型別同樣接受 markdown: true 但執行時直接忽略，落地會變成一坨 HTML
   // （2026-07-26 踩過：Substack 與 X 擷取回來的全文是單行 HTML，段落是 <br>）。
@@ -101,17 +104,27 @@ async function extract(): Promise<ExtractedContent> {
   const meta = collectMeta()
 
   return {
-    url: location.href,
-    domain: clean(result.domain) ?? location.hostname,
-    title: clean(result.title) ?? clean(document.title) ?? location.href,
-    contentMarkdown: unwrapLinkedImages(applyParagraphBreaks(result.content ?? '')),
-    author: clean(result.author),
-    published: clean(result.published),
-    description: clean(result.description),
-    image: clean(result.image),
-    // issue #4：模板 schemaOrg trigger 與 {{meta:...}} 變數用
-    schemaOrgTypes: schemaOrgTypes.length > 0 ? schemaOrgTypes : undefined,
-    meta: Object.keys(meta).length > 0 ? meta : undefined,
+    contentMarkdown: result.content ?? '',
+    metadata: {
+      url: location.href,
+      domain: clean(result.domain) ?? location.hostname,
+      title: clean(result.title) ?? clean(document.title) ?? location.href,
+      author: clean(result.author),
+      published: clean(result.published),
+      description: clean(result.description),
+      image: clean(result.image),
+      // issue #4：模板 schemaOrg trigger 與 {{meta:...}} 變數用
+      schemaOrgTypes: schemaOrgTypes.length > 0 ? schemaOrgTypes : undefined,
+      meta: Object.keys(meta).length > 0 ? meta : undefined,
+    },
+  }
+}
+
+async function extract(): Promise<ExtractedContent> {
+  const page = await parsePage()
+  return {
+    ...page.metadata,
+    contentMarkdown: normalizeExtractedMarkdown(page.contentMarkdown),
   }
 }
 
@@ -152,12 +165,8 @@ async function extractSelection(): Promise<ExtractedContent> {
   if (!text) {
     throw new Error('沒有選取任何內容，請先選取一段文字再擷取')
   }
-  return {
-    url: location.href,
-    domain: location.hostname,
-    title: clean(document.title) ?? location.href,
-    contentMarkdown: text,
-  }
+  const page = await parsePage()
+  return buildSelectionExtractedContent(text, page.metadata)
 }
 
 /**

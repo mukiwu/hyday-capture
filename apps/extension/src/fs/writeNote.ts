@@ -59,8 +59,12 @@ export async function writeClippingToVault(
   let filename = clipping.filename
   let collided = false
   if (await fileExists(dir, filename)) {
-    filename = appendCollisionSuffix(clipping.filename, capturedAt)
     collided = true
+    let attempt = 0
+    do {
+      filename = appendCollisionSuffix(clipping.filename, capturedAt, attempt)
+      attempt += 1
+    } while (await fileExists(dir, filename))
   }
 
   const fileHandle = await dir.getFileHandle(filename, { create: true })

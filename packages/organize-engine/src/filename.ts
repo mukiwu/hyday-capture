@@ -44,7 +44,7 @@ export function safeFileStem(title: string, fallbackUrl: string): string {
 }
 
 /** 檔名碰撞時，在副檔名前插入緊湊時間戳後綴 */
-export function appendCollisionSuffix(filename: string, at: Date): string {
+export function appendCollisionSuffix(filename: string, at: Date, attempt = 0): string {
   const dot = filename.lastIndexOf('.')
   const stem = dot === -1 ? filename : filename.slice(0, dot)
   const ext = dot === -1 ? '' : filename.slice(dot)
@@ -52,5 +52,6 @@ export function appendCollisionSuffix(filename: string, at: Date): string {
   const stamp =
     `${p(at.getFullYear(), 4)}${p(at.getMonth() + 1)}${p(at.getDate())}-` +
     `${p(at.getHours())}${p(at.getMinutes())}${p(at.getSeconds())}`
-  return `${stem} ${stamp}${ext}`
+  const sequence = attempt > 0 ? `-${attempt}` : ''
+  return `${stem} ${stamp}${sequence}${ext}`
 }

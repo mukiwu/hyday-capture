@@ -145,11 +145,17 @@ describe('buildRawClipping 筆記類型', () => {
     expect(split(out.markdown).fm).toContain('type: card')
   })
 
-  it('圖片頁是 img', () => {
-    const extracted = fixture({ url: 'https://example.com/a/photo.png' })
-    const { fm } = split(buildRawClipping({ extracted, now: NOW }).markdown)
-    expect(fm).toContain('type: img')
-  })
+	it('圖片頁是 img', () => {
+		const extracted = fixture({ url: 'https://example.com/a/photo.png' })
+		const { fm } = split(buildRawClipping({ extracted, now: NOW }).markdown)
+		expect(fm).toContain('type: img')
+	})
+
+	it('影音頁在原料階段先視為 article，交由 hyday app 後續整理', () => {
+		const extracted = fixture({ url: 'https://www.youtube.com/watch?v=abc' })
+		const { fm } = split(buildRawClipping({ extracted, now: NOW }).markdown)
+		expect(fm).toContain('type: article')
+	})
 
   it('選取擷取的型別壓過網址啟發式', () => {
     const extracted = fixture({ url: 'https://example.com/a/photo.png' })
