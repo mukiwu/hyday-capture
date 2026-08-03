@@ -3,11 +3,12 @@
  * Defuddle 需要 live DOM，所以只能在頁面 context 執行，這是瀏覽器專屬的薄 adapter。
  * Defuddle 以動態 import 延後載入，平常不擷取時不拖慢頁面。
  */
-import type { ExtractedContent } from '@hyday-capture/organize-engine'
+import { parseYouTubeUrl, type ExtractedContent } from '@hyday-capture/organize-engine'
 import { hardenParagraphs } from './hardenParagraphs'
 import { markPostBoundary } from './postBoundary'
 import { normalizeExtractedMarkdown } from './contentExtraction'
 import { buildSelectionExtractedContent, type ExtractedPageMetadata } from './selection'
+import { extractYouTubePageMetadata } from './youtubePage'
 
 export type ExtractMessage =
   | { type: 'HYDAY_EXTRACT' }
@@ -76,6 +77,29 @@ type ParsedPage = {
 }
 
 async function parsePage(): Promise<ParsedPage> {
+  const youtube = parseYouTubeUrl(location.href)
+  if (youtube) {
+    // YouTube 頁面不是文章；直接交給 Hyday 的裸 URL → embed seam，
+    // 描述另存 metadata，由 raw clipping 轉成可點的時間戳 Markdown。
+    // 這樣不會把留言或推薦影片誤當成原文，也不必等待 Defuddle 解析動態 DOM。
+    const schemaOrgTypes = collectSchemaOrgTypes()
+    const meta = collectMeta()
+    const youtubeMetadata = extractYouTubePageMetadata(document, youtube)
+    return {
+      contentMarkdown: youtube.url,
+      metadata: {
+        url: location.href,
+        domain: location.hostname,
+        title: clean(youtubeMetadata.title) ?? clean(document.title) ?? youtube.url,
+        author: clean(youtubeMetadata.author),
+        published: clean(youtubeMetadata.published),
+        description: youtubeMetadata.description,
+        schemaOrgTypes: schemaOrgTypes.length > 0 ? schemaOrgTypes : undefined,
+        meta: Object.keys(meta).length > 0 ? meta : undefined,
+      },
+    }
+  }
+
   // 必須是 `defuddle/full`：markdown 轉換器（內部走 turndown）只打包在 full 入口，
   // core 入口的型別同樣接受 markdown: true 但執行時直接忽略，落地會變成一坨 HTML
   // （2026-07-26 踩過：Substack 與 X 擷取回來的全文是單行 HTML，段落是 <br>）。
@@ -124,7 +148,7 @@ async function extract(): Promise<ExtractedContent> {
   const page = await parsePage()
   return {
     ...page.metadata,
-    contentMarkdown: normalizeExtractedMarkdown(page.contentMarkdown),
+    contentMarkdown: normalizeExtractedMarkdown(page.contentMarkdown, page.metadata.url),
   }
 }
 

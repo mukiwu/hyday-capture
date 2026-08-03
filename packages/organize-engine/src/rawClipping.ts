@@ -7,6 +7,7 @@
  */
 import type { NoteType, ExtractedContent } from './types'
 import { detectNoteType } from './noteType'
+import { formatYouTubeDescription, parseYouTubeUrl } from './youtube'
 import { safeFileStem } from './filename'
 import { serializeFrontmatter, formatTimestamp } from './frontmatter'
 
@@ -79,9 +80,10 @@ function normalizePublished(raw: string): string {
   return `${p(d.getFullYear(), 4)}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
 }
 
-/** 判定原料檔筆記類型：選取是 card、圖片是 img，其餘先交給 app 整理成 article。 */
+/** 判定原料檔筆記類型：選取是 card、YouTube 是 video、圖片是 img，其餘是 article。 */
 function resolveNoteType(url: string, selectionOnly: boolean): NoteType {
   if (selectionOnly) return 'card'
+  if (parseYouTubeUrl(url)) return 'video'
   return detectNoteType(url) === 'img' ? 'img' : 'article'
 }
 
@@ -103,6 +105,8 @@ export function buildRawClipping(input: RawClippingInput): RawClippingOutput {
   const timestamp = formatTimestamp(now)
   const published = extracted.published?.trim()
   const author = extracted.author?.trim()
+  const youtube = selectionOnly ? null : parseYouTubeUrl(extracted.url)
+  const sourceUrl = youtube?.url ?? extracted.url
 
   const frontmatter = serializeFrontmatter(
     [
@@ -112,7 +116,7 @@ export function buildRawClipping(input: RawClippingInput): RawClippingOutput {
       ['tags', [INBOX_TAG]],
       ['createdAt', timestamp],
       ['lastModified', timestamp],
-      ['sourceUrl', extracted.url],
+      ['sourceUrl', sourceUrl],
       ['sourceDomain', extracted.domain],
       ['author', author || undefined],
       ['publishedAt', published ? normalizePublished(published) : undefined],
@@ -124,7 +128,9 @@ export function buildRawClipping(input: RawClippingInput): RawClippingOutput {
   const blocks: string[] = []
   const note = userNote?.trim()
   if (note) blocks.push(asBlockquote(note))
-  const content = extracted.contentMarkdown.trim()
+  const content = youtube
+    ? [youtube.url, formatYouTubeDescription(extracted.description, youtube)].filter(Boolean).join('\n\n')
+    : extracted.contentMarkdown.trim()
   if (content) blocks.push(content)
 
   const body = blocks.join('\n\n')

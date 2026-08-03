@@ -6,7 +6,13 @@ describe('normalizeExtractedMarkdown', () => {
     expect(() => normalizeExtractedMarkdown('   ')).toThrow('抽取不到正文')
   })
 
-  it('保留有效的 Markdown 正文', () => {
-    expect(normalizeExtractedMarkdown('第一段\n\n第二段')).toBe('第一段\n\n第二段')
-  })
+	it('保留有效的 Markdown 正文', () => {
+		expect(normalizeExtractedMarkdown('第一段\n\n第二段')).toBe('第一段\n\n第二段')
+	})
+
+	it('YouTube 頁面沒有正文時改以正規化影片網址作為正文', () => {
+		expect(
+			normalizeExtractedMarkdown('', 'https://www.youtube.com/watch?v=aR97E7aKEgg&si=tracking'),
+		).toBe('https://www.youtube.com/watch?v=aR97E7aKEgg')
+	})
 })

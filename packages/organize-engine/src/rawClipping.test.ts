@@ -157,6 +157,23 @@ describe('buildRawClipping 筆記類型', () => {
 		expect(fm).toContain('type: article')
 	})
 
+	it('YouTube 擷取產出 video，保留描述並把時間戳轉成可點連結', () => {
+		const extracted = fixture({
+			url: 'https://www.youtube.com/watch?v=aR97E7aKEgg&si=tracking',
+			contentMarkdown: 'YouTube 原文、留言或推薦內容不應落地',
+			description: '📌 時間戳\n0:00 開場\n1:24 重點',
+		})
+		const out = buildRawClipping({ extracted, now: NOW })
+		const { fm, body } = split(out.markdown)
+
+		expect(fm).toContain('type: video')
+		expect(fm).toContain('sourceUrl: https://www.youtube.com/watch?v=aR97E7aKEgg')
+		expect(body.trim()).toBe(
+			'https://www.youtube.com/watch?v=aR97E7aKEgg\n\n📌 時間戳\n[0:00](https://www.youtube.com/watch?v=aR97E7aKEgg&t=0) 開場\n[1:24](https://www.youtube.com/watch?v=aR97E7aKEgg&t=84) 重點',
+		)
+		expect(body).not.toContain('YouTube 原文')
+	})
+
   it('選取擷取的型別壓過網址啟發式', () => {
     const extracted = fixture({ url: 'https://example.com/a/photo.png' })
     const out = buildRawClipping({ extracted, now: NOW, selectionOnly: true })

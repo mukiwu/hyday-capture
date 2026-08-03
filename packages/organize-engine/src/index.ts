@@ -18,6 +18,8 @@ export {
 // organize 與模板、下標留著給 app 端接手時搬運，擷取流程已不再呼叫
 export { organize } from './organize'
 export { detectNoteType } from './noteType'
+export { formatYouTubeDescription, parseYouTubeUrl, youtubeTimestampUrl } from './youtube'
+export type { YouTubeVideo } from './youtube'
 export { safeFileStem, appendCollisionSuffix } from './filename'
 export { serializeFrontmatter, formatTimestamp, yamlScalar } from './frontmatter'
 export type { ArrayStyle } from './frontmatter'
