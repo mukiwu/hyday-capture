@@ -21,7 +21,7 @@ function code(text: string): HTMLElement {
 async function showCurrent(): Promise<void> {
   const handle = await getVaultDirHandle()
   if (!handle) {
-    setCurrent('muted', '尚未選擇資料夾')
+    setCurrent('muted', '尚未設定 hyday vault 資料夾')
     return
   }
   const granted = (await handle.queryPermission({ mode: 'readwrite' })) === 'granted'
@@ -37,16 +37,28 @@ async function showCurrent(): Promise<void> {
   reauth.textContent = '重新授權寫入權限'
   reauth.addEventListener('click', () => {
     void (async () => {
-      const ok = await ensureReadWritePermission(handle)
-      if (ok) await showCurrent()
-      else setCurrent('err', '沒有取得寫入權限，請再試一次，或改用下方重新選擇資料夾')
+      try {
+        const ok = await ensureReadWritePermission(handle)
+        if (ok) await showCurrent()
+        else {
+          setCurrent(
+            'err',
+            '未取得寫入權限，請再試一次；若仍無法授權，請嘗試下方重新選擇資料夾。',
+          )
+        }
+      } catch {
+        setCurrent(
+          'err',
+          '未取得寫入權限，請再試一次；若仍無法授權，請嘗試下方重新選擇資料夾。',
+        )
+      }
     })()
   })
   setCurrent(
     'muted',
     '目前 hyday vault：',
     code(handle.name),
-    '（寫入權限尚未取得）',
+    ' (尚未取得寫入權限)',
     document.createElement('br'),
     reauth,
   )
@@ -58,7 +70,10 @@ async function pickFolder(): Promise<void> {
     const granted = await ensureReadWritePermission(handle)
     if (!granted) {
       // 沒拿到寫入權就存 handle，之後每次擷取都會失敗，使用者卻以為設好了
-      setCurrent('err', '沒有取得寫入權限，資料夾未儲存，請再選一次並允許寫入')
+      setCurrent(
+        'err',
+        '未取得寫入權限，資料夾尚未儲存。請重新選擇並允許寫入權限。',
+      )
       return
     }
     await saveVaultDirHandle(handle)
