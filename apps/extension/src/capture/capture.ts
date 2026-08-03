@@ -79,11 +79,14 @@ export async function captureActiveTab(
   dir: FileSystemDirectoryHandle,
   fetchImage: ImageFetcher,
   userNote?: string,
+  signal?: AbortSignal,
 ): Promise<WriteResult> {
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
   const tab = await getActiveTab()
   // 於擷取起點取時間，與背景入口一致（createdAt 反映擷取當下，不受抽取耗時影響）
   const now = new Date()
-  const extracted = await requestExtraction(tab.id)
+  const extracted = await requestExtraction(tab.id, { signal })
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
   return writeClipping(dir, extracted, now, false, fetchImage, userNote)
 }
 

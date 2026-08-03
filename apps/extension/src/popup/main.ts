@@ -13,9 +13,12 @@ import {
   requestWritePermission,
   CaptureError,
 } from '../capture/capture'
+import { ExtractionError } from '../extract/requestExtraction'
 import { fetchImageViaWorker } from '../net/imageFetch'
 
 const statusEl = document.getElementById('status')!
+let activeCapture: AbortController | undefined
+let popupClosed = false
 
 function setStatus(cls: string, ...nodes: (string | Node)[]): void {
   statusEl.className = cls
@@ -41,15 +44,39 @@ function reportError(err: unknown): void {
 }
 
 async function capture(dir: FileSystemDirectoryHandle): Promise<void> {
-  setStatus('muted', '擷取中…')
+  if (popupClosed) return
+  const controller = new AbortController()
+  activeCapture = controller
+  setStatus(
+    'muted',
+    '擷取中…',
+    document.createElement('br'),
+    button('停止擷取', () => controller.abort()),
+  )
   try {
-    const result = await captureActiveTab(dir, fetchImageViaWorker)
+    const result = await captureActiveTab(dir, fetchImageViaWorker, undefined, controller.signal)
     const suffix = result.collided ? '（原檔名已存在，改用不重複檔名）' : ''
     setStatus('ok', '已擷取，寫入 ', code(result.filename), suffix)
   } catch (err) {
+    if (
+      (err instanceof ExtractionError && err.code === 'EXTRACT_CANCELLED') ||
+      (err instanceof DOMException && err.name === 'AbortError')
+    ) {
+      setStatus('muted', '已停止擷取')
+      return
+    }
     reportError(err)
+  } finally {
+    if (activeCapture === controller) activeCapture = undefined
   }
 }
+
+// Chrome action popup 失去焦點時會觸發 pagehide。不要讓切換分頁後的舊擷取繼續掛著，
+// 重新開 popup 時也不會把上一個 pending request 誤認成目前這次擷取。
+window.addEventListener('pagehide', () => {
+  popupClosed = true
+  activeCapture?.abort()
+})
 
 /** 權限未到手時的修復動線。requestWritePermission 必須是點擊 handler 的第一個 await */
 function askPermission(dir: FileSystemDirectoryHandle): void {
@@ -85,6 +112,7 @@ async function run(): Promise<void> {
   }
 
   if (await hasWritePermission(dir)) {
+    if (popupClosed) return
     await capture(dir)
     return
   }

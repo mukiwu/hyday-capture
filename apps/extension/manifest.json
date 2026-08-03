@@ -3,9 +3,21 @@
   "name": "hyday-capture",
   "version": "0.1.0",
   "description": "一鍵把當前網頁擷取成 hyday 能吃的 Markdown 筆記，落進你本機的 vault",
+  "icons": {
+    "16": "hyday-capture-icon-16.png",
+    "32": "hyday-capture-icon-32.png",
+    "48": "hyday-capture-icon-48.png",
+    "128": "hyday-capture-icon-128.png"
+  },
   "action": {
     "default_title": "擷取到 hyday",
-    "default_popup": "src/popup/index.html"
+    "default_popup": "src/popup/index.html",
+    "default_icon": {
+      "16": "hyday-capture-icon-16.png",
+      "32": "hyday-capture-icon-32.png",
+      "48": "hyday-capture-icon-48.png",
+      "128": "hyday-capture-icon-128.png"
+    }
   },
   "options_page": "src/options/index.html",
   "background": {
