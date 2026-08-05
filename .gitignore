@@ -11,3 +11,8 @@ coverage/
 
 # Claude Code 本地 worktree 與暫存
 .claude/
+
+# 內部規劃文件，不對外公開（repo public 前移出追蹤）
+CONTEXT.md
+docs/adr/
+docs/spec/
