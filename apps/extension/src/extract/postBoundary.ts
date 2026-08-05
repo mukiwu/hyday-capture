@@ -26,7 +26,8 @@ const MAX_BODY_RATIO = 0.6
 /**
  * 這個 href 是不是指向「當前這一頁」。只比對 origin 與 pathname：
  * 貼文的時間戳連結常常帶一堆追蹤參數（FB 的 __cft__ 之類），查詢字串不能算差異。
- * 純錨點（#foo）與空 href 不算。
+ * 純錨點（#foo）與空 href 不算；帶 fragment 的同路徑連結（/文章/#respond 這種
+ * WordPress 留言區連結）是頁內跳轉，也不算——feed 型網站的時間戳永久連結不帶 fragment。
  */
 export function isSelfPermalink(href: string | null, pageUrl: string): boolean {
   if (!href) return false
@@ -36,6 +37,7 @@ export function isSelfPermalink(href: string | null, pageUrl: string): boolean {
     const target = new URL(raw, pageUrl)
     const page = new URL(pageUrl)
     if (target.origin !== page.origin) return false
+    if (target.hash) return false
     const strip = (p: string) => p.replace(/\/+$/, '')
     return strip(target.pathname) === strip(page.pathname)
   } catch {

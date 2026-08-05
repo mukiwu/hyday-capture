@@ -30,6 +30,14 @@ describe('isSelfPermalink', () => {
     expect(isSelfPermalink(null, PAGE)).toBe(false)
   })
 
+  it('同路徑但帶 fragment 是頁內跳轉，不算永久連結（WordPress 留言表單的取消回覆連結）', () => {
+    // muki.tw 實案（2026-08-05）：/文章路徑/#respond 被誤認成自我永久連結，
+    // 留言表單被標成正文容器，抽出空內容報「抽取不到正文」
+    const wp = 'https://muki.tw/ai-workflows-through-constraints/'
+    expect(isSelfPermalink('/ai-workflows-through-constraints/#respond', wp)).toBe(false)
+    expect(isSelfPermalink(`${wp}#comments`, wp)).toBe(false)
+  })
+
   it('壞掉的 href 不會炸', () => {
     expect(isSelfPermalink('http://[not a url', PAGE)).toBe(false)
   })
