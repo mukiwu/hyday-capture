@@ -36,17 +36,17 @@ function createContextMenus(): void {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
       id: MENU_IDS.page,
-      title: '擷取這個頁面到 hyday',
+      title: '擷取這個頁面到 Hyday',
       contexts: ['page'],
     })
     chrome.contextMenus.create({
       id: MENU_IDS.selection,
-      title: '擷取選取內容到 hyday',
+      title: '擷取選取內容到 Hyday',
       contexts: ['selection'],
     })
     chrome.contextMenus.create({
       id: MENU_IDS.link,
-      title: '擷取這個連結到 hyday',
+      title: '擷取這個連結到 Hyday',
       contexts: ['link'],
     })
   })

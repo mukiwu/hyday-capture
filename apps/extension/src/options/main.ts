@@ -21,12 +21,12 @@ function code(text: string): HTMLElement {
 async function showCurrent(): Promise<void> {
   const handle = await getVaultDirHandle()
   if (!handle) {
-    setCurrent('muted', '尚未設定 hyday vault 資料夾')
+    setCurrent('muted', '尚未設定 Hyday Vault 資料夾')
     return
   }
   const granted = (await handle.queryPermission({ mode: 'readwrite' })) === 'granted'
   if (granted) {
-    setCurrent('ok', '目前 hyday vault：', code(handle.name))
+    setCurrent('ok', '目前 Hyday Vault：', code(handle.name))
     return
   }
 
@@ -56,7 +56,7 @@ async function showCurrent(): Promise<void> {
   })
   setCurrent(
     'muted',
-    '目前 hyday vault：',
+    '目前 Hyday Vault：',
     code(handle.name),
     ' (尚未取得寫入權限)',
     document.createElement('br'),

@@ -48,7 +48,7 @@ async function getActiveTab(): Promise<{ id: number; url: string }> {
 export async function getVaultDir(): Promise<FileSystemDirectoryHandle> {
   const dir = await getVaultDirHandle()
   if (!dir) {
-    throw new CaptureError('NO_OUTPUT_DIR', '尚未選擇 hyday vault 資料夾，請先到設定頁選一個')
+    throw new CaptureError('NO_OUTPUT_DIR', '尚未選擇 Hyday Vault 資料夾，請先到設定頁選一個')
   }
   return dir
 }
@@ -130,7 +130,7 @@ export type CaptureOptions = {
 async function resolveVaultDirWithoutPrompt(): Promise<FileSystemDirectoryHandle> {
   const dir = await getVaultDirHandle()
   if (!dir) {
-    throw new CaptureError('NO_OUTPUT_DIR', '尚未選擇 hyday vault 資料夾，請先到設定頁選一個')
+    throw new CaptureError('NO_OUTPUT_DIR', '尚未選擇 Hyday Vault 資料夾，請先到設定頁選一個')
   }
   if ((await dir.queryPermission({ mode: 'readwrite' })) !== 'granted') {
     throw new CaptureError(

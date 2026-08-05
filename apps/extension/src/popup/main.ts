@@ -82,7 +82,7 @@ window.addEventListener('pagehide', () => {
 function askPermission(dir: FileSystemDirectoryHandle): void {
   setStatus(
     'muted',
-    '需要你允許寫入 hyday vault 資料夾（重載擴充或重開瀏覽器後會需要再允許一次）',
+    '需要你允許寫入 Hyday Vault 資料夾（重載擴充或重開瀏覽器後會需要再允許一次）',
     document.createElement('br'),
     button('允許寫入並擷取', () => {
       void requestWritePermission(dir).then((granted) => {

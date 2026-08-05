@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "hyday-capture",
+  "name": "Hyday Capture",
   "version": "0.1.0",
-  "description": "一鍵把當前網頁擷取成 hyday 能吃的 Markdown 筆記，落進你本機的 vault",
+  "description": "一鍵把當前網頁擷取成 Hyday 能吃的 Markdown 筆記，落進你本機的 vault",
   "icons": {
     "16": "hyday-capture-icon-16.png",
     "32": "hyday-capture-icon-32.png",
@@ -10,7 +10,7 @@
     "128": "hyday-capture-icon-128.png"
   },
   "action": {
-    "default_title": "擷取到 hyday",
+    "default_title": "擷取到 Hyday",
     "default_popup": "src/popup/index.html",
     "default_icon": {
       "16": "hyday-capture-icon-16.png",
@@ -37,9 +37,10 @@
         "default": "Ctrl+Shift+S",
         "mac": "Command+Shift+S"
       },
-      "description": "擷取當前頁面到 hyday"
+      "description": "擷取當前頁面到 Hyday"
     }
   },
-  "permissions": ["tabs", "storage", "contextMenus"],
+  "homepage_url": "https://github.com/mukiwu/hyday-capture",
+  "permissions": ["storage", "contextMenus"],
   "host_permissions": ["<all_urls>"]
 }
