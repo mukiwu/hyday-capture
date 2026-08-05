@@ -6,6 +6,7 @@
 import { parseYouTubeUrl, type ExtractedContent } from '@hyday-capture/organize-engine'
 import { hardenParagraphs } from './hardenParagraphs'
 import { markPostBoundary } from './postBoundary'
+import { parseWithBoundaryFallback } from './boundaryFallback'
 import { normalizeExtractedMarkdown } from './contentExtraction'
 import { buildSelectionExtractedContent, type ExtractedPageMetadata } from './selection'
 import { extractYouTubePageMetadata } from './youtubePage'
@@ -110,15 +111,19 @@ async function parsePage(): Promise<ParsedPage> {
   // 正規化成空格、之後救不回來。詳見 hardenParagraphs 與引擎的 paragraphBreaks
   const restoreDom = hardenParagraphs(document)
   // feed 型網站（FB、Threads 這類）的永久連結頁，DOM 裡同時有目標貼文與整片動態消息，
-  // 內容評分很容易挑錯。用「指向當前網址的連結」標出目標貼文交給抽取器，見 postBoundary
+  // 內容評分很容易挑錯。用「指向當前網址的連結」標出目標貼文交給抽取器，見 postBoundary。
+  // 邊界是啟發式、會誤判，parseWithBoundaryFallback 保證誤判最壞只退回原生抽取，
+  // 不會讓抽得到的頁面變成抽不到，見 boundaryFallback
   const boundary = markPostBoundary(document, location.href)
   let result: ReturnType<InstanceType<typeof Defuddle>['parse']>
   try {
-    result = new Defuddle(document, {
-      url: location.href,
-      markdown: true, // content 直接輸出 Markdown
-      contentSelector: boundary.selector,
-    }).parse()
+    result = parseWithBoundaryFallback(boundary.selector, (selector) =>
+      new Defuddle(document, {
+        url: location.href,
+        markdown: true, // content 直接輸出 Markdown
+        contentSelector: selector,
+      }).parse(),
+    )
   } finally {
     boundary.restore()
     restoreDom()
