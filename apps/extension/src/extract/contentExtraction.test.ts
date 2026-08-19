@@ -15,4 +15,20 @@ describe('normalizeExtractedMarkdown', () => {
 			normalizeExtractedMarkdown('', 'https://www.youtube.com/watch?v=aR97E7aKEgg&si=tracking'),
 		).toBe('https://www.youtube.com/watch?v=aR97E7aKEgg')
 	})
+
+  it('一般影片 HTML 在截取後改成 Hyday 影片 Markdown', () => {
+    expect(
+      normalizeExtractedMarkdown(
+        '前文\n\n<video controls><source src="https://example.com/path/xxx.mp4"></video>\n\n後文',
+        'https://example.com/article',
+      ),
+    ).toBe('前文\n\n[xxx.mp4](https://example.com/path/xxx.mp4)\n\n後文')
+  })
+
+  it('文章裡的 YouTube iframe 轉成 canonical 裸網址', () => {
+    const iframe = '<iframe src="https://www.youtube.com/embed/aR97E7aKEgg"></iframe>'
+    expect(normalizeExtractedMarkdown(iframe, 'https://example.com/article')).toBe(
+      'https://www.youtube.com/watch?v=aR97E7aKEgg',
+    )
+  })
 })
