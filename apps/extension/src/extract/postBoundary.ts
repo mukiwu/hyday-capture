@@ -24,6 +24,8 @@ const MIN_POST_TEXT = 120
 const MAX_CLIMB = 8
 /** 容器佔整頁文字的比例上限，超過就是挑到整片 feed 了 */
 const MAX_BODY_RATIO = 0.6
+/** 容器文字幾乎全來自它自己的 <a> 子孫，判定為導覽/分頁列的比例門檻 */
+const LINK_TEXT_RATIO = 0.8
 
 /**
  * 這個 href 是不是指向「當前這一頁」。只比對 origin 與 pathname：
@@ -51,21 +53,38 @@ function textLength(el: Element): number {
   return (el.textContent ?? '').trim().length
 }
 
+/** 容器裡所有 <a> 子孫的文字總長，用來判斷這塊文字是不是幾乎全部來自連結 */
+function linkTextLength(el: Element): number {
+  return Array.from(el.querySelectorAll('a')).reduce((sum, a) => sum + textLength(a), 0)
+}
+
+/**
+ * 容器文字幾乎全部來自它自己的 <a> 子孫，代表這是導覽列或分頁列，不是貼文/正文本體。
+ * 文件站的「同系列頁面」分頁列踩過這雷：分頁列本身的字數常常超過 MIN_POST_TEXT，
+ * 純看字數會把分頁列誤判成貼文容器（platform.claude.com 文件頁實案，2026-09-03）。
+ */
+export function isNavLikeContainer(totalTextLength: number, linkTextLength: number): boolean {
+  if (totalTextLength === 0) return false
+  return linkTextLength / totalTextLength > LINK_TEXT_RATIO
+}
+
 /**
  * 從指向本頁的連結往上找貼文容器。優先語意容器（article／role=article），
- * 沒有的話往上爬到字數夠的第一層，並擋掉大到等於整片 feed 的容器
+ * 沒有的話往上爬到字數夠、且不是導覽列的第一層，並擋掉大到等於整片 feed 的容器
  */
 function containerFor(anchor: Element, bodyTextLength: number): Element | null {
   const semantic = anchor.closest(POST_CONTAINER)
   if (semantic && textLength(semantic) >= MIN_POST_TEXT) {
-    return textLength(semantic) <= bodyTextLength * MAX_BODY_RATIO ? semantic : null
+    const withinBodyRatio = textLength(semantic) <= bodyTextLength * MAX_BODY_RATIO
+    const navLike = isNavLikeContainer(textLength(semantic), linkTextLength(semantic))
+    return withinBodyRatio && !navLike ? semantic : null
   }
 
   let cursor: Element | null = anchor.parentElement
   for (let i = 0; cursor && i < MAX_CLIMB; i++, cursor = cursor.parentElement) {
     if (cursor.tagName === 'BODY' || cursor.tagName === 'MAIN') break
     const len = textLength(cursor)
-    if (len < MIN_POST_TEXT) continue
+    if (len < MIN_POST_TEXT || isNavLikeContainer(len, linkTextLength(cursor))) continue
     return len <= bodyTextLength * MAX_BODY_RATIO ? cursor : null
   }
   return null

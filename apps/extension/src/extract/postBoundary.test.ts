@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isSelfPermalink } from './postBoundary'
+import { isSelfPermalink, isNavLikeContainer } from './postBoundary'
 
 const PAGE = 'https://www.facebook.com/max.cc.lai/posts/pfbid02em2tT6'
 
@@ -40,5 +40,24 @@ describe('isSelfPermalink', () => {
 
   it('壞掉的 href 不會炸', () => {
     expect(isSelfPermalink('http://[not a url', PAGE)).toBe(false)
+  })
+})
+
+describe('isNavLikeContainer', () => {
+  it('文字幾乎全部來自連結，判定為導覽/分頁列', () => {
+    // platform.claude.com 文件頁實案：分頁列 173 字裡有 155 字來自 <a>
+    expect(isNavLikeContainer(173, 155)).toBe(true)
+  })
+
+  it('文字主要是本文，即使夾雜幾個連結也不算導覽列', () => {
+    expect(isNavLikeContainer(2000, 120)).toBe(false)
+  })
+
+  it('沒有文字時不算導覽列，避免除以零誤判', () => {
+    expect(isNavLikeContainer(0, 0)).toBe(false)
+  })
+
+  it('剛好等於門檻比例不算超過', () => {
+    expect(isNavLikeContainer(100, 80)).toBe(false)
   })
 })
