@@ -98,6 +98,33 @@ function fallbackTitle(document: Document): string | undefined {
   return title.replace(/\s+-\s+YouTube\s*$/i, '').trim() || undefined
 }
 
+/** Shorts 頁（/shorts/<id>）用的是完全不同的 reel UI，`/watch` 頁的 DOM/meta fallback 選不到東西 */
+function isShortsPage(document: Document): boolean {
+  return (document.location?.pathname ?? '').startsWith('/shorts/')
+}
+
+function authorFallback(document: Document): string | undefined {
+  return (
+    metaContent(document, 'meta[itemprop="author"]') ??
+    elementText(document, '#owner #channel-name, ytd-channel-name a, yt-reel-channel-bar-view-model a')
+  )
+}
+
+/**
+ * `/watch` 頁的 `<meta name/itemprop="description">` 是逐片填的，可以放心當 fallback；
+ * Shorts 頁這兩個 meta 卻是整站通用文案（"在 YouTube 上盡情享受..."），不是這支影片的敘述——
+ * 用了反而比留空還糟，見過真的把這段通用文案存成敘述的實案（2026-09-03）。
+ * Shorts 也沒有獨立於標題之外的敘述容器，找不到就讓它是 undefined，不瞎猜。
+ */
+function descriptionFallback(document: Document): string | undefined {
+  if (isShortsPage(document)) return undefined
+  return (
+    metaContent(document, 'meta[itemprop="description"]') ??
+    metaContent(document, 'meta[name="description"]') ??
+    elementText(document, '#description-inline-expander, ytd-watch-metadata #description')
+  )
+}
+
 /** Content script 的薄 adapter：script JSON 優先，DOM/meta 只作頁面變形時的 fallback。 */
 export function extractYouTubePageMetadata(document: Document, video: YouTubeVideo): YouTubePageMetadata {
   for (const script of Array.from(document.scripts)) {
@@ -106,26 +133,18 @@ export function extractYouTubePageMetadata(document: Document, video: YouTubeVid
       return {
         ...parsed,
         title: parsed.title ?? fallbackTitle(document),
-        description:
-          parsed.description ??
-          metaContent(document, 'meta[itemprop="description"]') ??
-          metaContent(document, 'meta[name="description"]') ??
-          elementText(document, '#description-inline-expander, ytd-watch-metadata #description'),
+        author: parsed.author ?? authorFallback(document),
+        description: parsed.description ?? descriptionFallback(document),
       }
     }
   }
 
   return {
     title: fallbackTitle(document),
-    author:
-      metaContent(document, 'meta[itemprop="author"]') ??
-      elementText(document, '#owner #channel-name, ytd-channel-name a'),
+    author: authorFallback(document),
     published:
       metaContent(document, 'meta[itemprop="datePublished"]') ??
       metaContent(document, 'meta[itemprop="uploadDate"]'),
-    description:
-      metaContent(document, 'meta[itemprop="description"]') ??
-      metaContent(document, 'meta[name="description"]') ??
-      elementText(document, '#description-inline-expander, ytd-watch-metadata #description'),
+    description: descriptionFallback(document),
   }
 }
