@@ -56,7 +56,18 @@ async function capture(dir: FileSystemDirectoryHandle): Promise<void> {
   try {
     const result = await captureActiveTab(dir, fetchImageViaWorker, undefined, controller.signal)
     const suffix = result.collided ? '（原檔名已存在，改用不重複檔名）' : ''
-    setStatus('ok', '已擷取，寫入 ', code(result.filename), suffix)
+    if (result.images.skipped > 0) {
+      setStatus(
+        'warn',
+        '已擷取，寫入 ',
+        code(result.filename),
+        suffix,
+        document.createElement('br'),
+        `${result.images.skipped} 張圖片未能保存，已保留原網址`,
+      )
+    } else {
+      setStatus('ok', '已擷取，寫入 ', code(result.filename), suffix)
+    }
   } catch (err) {
     if (
       (err instanceof ExtractionError && err.code === 'EXTRACT_CANCELLED') ||

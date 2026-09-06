@@ -54,9 +54,15 @@ function createContextMenus(): void {
 
 // popup 與 content script 直接跨網域抓圖會被目標站的 CORS 擋掉（圖片 CDN 多半不送
 // Access-Control-Allow-Origin），由這裡帶著 host_permissions 代發，見 net/imageFetch
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if ((message as FetchImageRequest)?.type !== FETCH_IMAGE_MESSAGE) return undefined
-  void handleFetchImageMessage((message as FetchImageRequest).url).then(sendResponse)
+  const extensionOrigin = chrome.runtime.getURL('')
+  if (sender.id !== chrome.runtime.id || !sender.url?.startsWith(extensionOrigin)) {
+    sendResponse({ ok: false, error: '拒絕非擴充頁面的圖片下載請求' })
+    return false
+  }
+  const request = message as FetchImageRequest
+  void handleFetchImageMessage(request.url, request.sourceUrl).then(sendResponse)
   return true // 非同步回覆，保持訊息通道開著
 })
 
@@ -79,8 +85,13 @@ async function runCapture(plan: CapturePlan, tabId: number | undefined): Promise
       : { tabId, selectionOnly: plan.selectionOnly }
 
   try {
-    await captureFromBackground(opts)
-    void flashBadge('✓', '#147a3d')
+    const result = await captureFromBackground(opts)
+    if (result.images.skipped > 0) {
+      console.warn(`[hyday-capture] ${result.images.skipped} 張圖片未能保存，已保留原網址`)
+      void flashBadge('!', '#e37400')
+    } else {
+      void flashBadge('✓', '#147a3d')
+    }
   } catch (err) {
     if (needsDocumentGesture(err)) {
       // SW 無法在無手勢下請求權限，帶使用者去設定頁重新授權（那裡有手勢 + document）

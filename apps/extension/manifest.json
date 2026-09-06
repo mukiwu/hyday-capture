@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Hyday Capture",
-  "version": "0.1.0",
+  "version": "0.1.5",
   "description": "一鍵把當前網頁擷取成 Hyday 能吃的 Markdown 筆記，落進你本機的 vault",
   "icons": {
     "16": "hyday-capture-icon-16.png",
@@ -41,6 +41,6 @@
     }
   },
   "homepage_url": "https://github.com/mukiwu/hyday-capture",
-  "permissions": ["storage", "contextMenus"],
+  "permissions": ["storage", "contextMenus", "declarativeNetRequestWithHostAccess"],
   "host_permissions": ["<all_urls>"]
 }

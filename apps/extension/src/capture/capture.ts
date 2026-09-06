@@ -17,6 +17,13 @@ import { requestExtraction } from '../extract/requestExtraction'
 import { localizeImages } from './localizeImages'
 import { fetchImageDirect, type ImageFetcher } from '../net/imageFetch'
 
+export type CaptureResult = WriteResult & {
+  images: {
+    saved: number
+    skipped: number
+  }
+}
+
 export type CaptureErrorCode =
   | 'NO_OUTPUT_DIR'
   | 'NO_ACTIVE_TAB'
@@ -80,7 +87,7 @@ export async function captureActiveTab(
   fetchImage: ImageFetcher,
   userNote?: string,
   signal?: AbortSignal,
-): Promise<WriteResult> {
+): Promise<CaptureResult> {
   if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
   const tab = await getActiveTab()
   // 於擷取起點取時間，與背景入口一致（createdAt 反映擷取當下，不受抽取耗時影響）
@@ -98,15 +105,19 @@ async function writeClipping(
   selectionOnly: boolean,
   fetchImage: ImageFetcher,
   userNote?: string,
-): Promise<WriteResult> {
-  const localized = await localizeImages(extracted.contentMarkdown, dir, fetchImage)
+): Promise<CaptureResult> {
+  const localized = await localizeImages(extracted.contentMarkdown, dir, fetchImage, extracted.url)
   const clipping = buildRawClipping({
     extracted: { ...extracted, contentMarkdown: localized.markdown },
     now,
     selectionOnly,
     userNote,
   })
-  return writeClippingToVault(dir, clipping, now)
+  const written = await writeClippingToVault(dir, clipping, now)
+  return {
+    ...written,
+    images: { saved: localized.saved, skipped: localized.skipped },
+  }
 }
 
 // ── issue #7：右鍵選單、快捷鍵等在 background service worker 觸發的入口 ──
@@ -210,7 +221,7 @@ async function extractFromLink(linkUrl: string): Promise<ExtractedContent> {
  * 背景入口（右鍵、快捷鍵）的擷取管線。與工具列入口共用原料檔與落檔，
  * 差別只在權限採「只查不請求」，且支援擷取選取內容或連結。
  */
-export async function captureFromBackground(opts: CaptureOptions): Promise<WriteResult> {
+export async function captureFromBackground(opts: CaptureOptions): Promise<CaptureResult> {
   // 先確認資料夾與權限，沒過就別白開背景分頁
   const dir = await resolveVaultDirWithoutPrompt()
   const now = new Date()

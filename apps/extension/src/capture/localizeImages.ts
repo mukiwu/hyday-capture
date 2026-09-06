@@ -20,6 +20,7 @@ export async function localizeImages(
   markdown: string,
   vaultDir: FileSystemDirectoryHandle,
   fetchImage: ImageFetcher,
+  sourceUrl?: string,
 ): Promise<LocalizeResult> {
   const urls = findRemoteImageUrls(markdown)
   if (urls.length === 0) return { markdown, saved: 0, skipped: 0 }
@@ -39,7 +40,7 @@ export async function localizeImages(
   // 逐張下載不併發：一篇圖不多，順序做對來源站也比較客氣
   for (const url of urls) {
     try {
-      const { bytes, contentType } = await fetchImage(url)
+      const { bytes, contentType } = await fetchImage(url, sourceUrl)
       const filename = assetFileName(url, contentType)
       if (!filename) {
         // 判不出 Hyday 供得出來的副檔名，存了也是壞圖，保留遠端網址

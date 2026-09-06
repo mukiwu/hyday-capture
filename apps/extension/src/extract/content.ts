@@ -10,6 +10,13 @@ import { parseWithBoundaryFallback } from './boundaryFallback'
 import { normalizeExtractedMarkdown } from './contentExtraction'
 import { buildSelectionExtractedContent, type ExtractedPageMetadata } from './selection'
 import { extractYouTubePageMetadata } from './youtubePage'
+import {
+  isNotionUrl,
+  notionContentHtml,
+  notionTitleFrom,
+  withNotionFallback,
+} from './notionPage'
+import { loadMarkdownConverter } from './markdownConverter'
 
 export type ExtractMessage =
   | { type: 'HYDAY_EXTRACT' }
@@ -77,30 +84,43 @@ type ParsedPage = {
   metadata: ExtractedPageMetadata
 }
 
-async function parsePage(): Promise<ParsedPage> {
-  const youtube = parseYouTubeUrl(location.href)
-  if (youtube) {
-    // YouTube 頁面不是文章；直接交給 Hyday 的裸 URL → embed seam，
-    // 描述另存 metadata，由 raw clipping 轉成可點的時間戳 Markdown。
-    // 這樣不會把留言或推薦影片誤當成原文，也不必等待 Defuddle 解析動態 DOM。
-    const schemaOrgTypes = collectSchemaOrgTypes()
-    const meta = collectMeta()
-    const youtubeMetadata = extractYouTubePageMetadata(document, youtube)
-    return {
-      contentMarkdown: youtube.url,
-      metadata: {
-        url: location.href,
-        domain: location.hostname,
-        title: clean(youtubeMetadata.title) ?? clean(document.title) ?? youtube.url,
-        author: clean(youtubeMetadata.author),
-        published: clean(youtubeMetadata.published),
-        description: youtubeMetadata.description,
-        schemaOrgTypes: schemaOrgTypes.length > 0 ? schemaOrgTypes : undefined,
-        meta: Object.keys(meta).length > 0 ? meta : undefined,
-      },
-    }
-  }
+/**
+ * Notion 不是文章型頁面：格式全在 CSS 裡，原生抽取讀 DOM 只會拿到沒有符號的條列與
+ * 掉光的粗體。改成問 Notion 要它 copy handler 產的語意 HTML，再轉 Markdown。
+ * 這條路任何一步不成立都回 null，退回原生抽取由 withNotionFallback 保證。
+ */
+async function parseNotionPage(): Promise<ParsedPage | null> {
+  const html = await notionContentHtml(document)
+  if (!html) return null
 
+  // 跟原生抽取共用同一個 markdown 轉換器（turndown），輸出風格才一致
+  const toMarkdown = await loadMarkdownConverter()
+  const contentMarkdown = toMarkdown(html, location.href)
+  if (!contentMarkdown.trim()) return null
+
+  const schemaOrgTypes = collectSchemaOrgTypes()
+  const meta = collectMeta()
+  return {
+    contentMarkdown,
+    metadata: {
+      url: location.href,
+      domain: location.hostname,
+      // 標題退回網址而不是 document.title：走到這裡代表網頁標題只剩「Notion」兩個字，
+      // 拿它當筆記標題比拿網址還沒用
+      title: notionTitleFrom(document.title) ?? location.href,
+      // 作者與發布時間 Notion 頁面沒有可靠來源；description 的 meta 是 Notion 全站共用的
+      // 產品介紹句，抓進來會讓每篇筆記的摘要都一樣，寧可留空（同 YouTube 那條的整站 meta 問題）
+      schemaOrgTypes: schemaOrgTypes.length > 0 ? schemaOrgTypes : undefined,
+      meta: Object.keys(meta).length > 0 ? meta : undefined,
+    },
+  }
+}
+
+/**
+ * 原生抽取：Defuddle 讀 live DOM 評分挑正文，適用一般文章型頁面。
+ * 站台專屬的路徑抽不到時一律退回這裡。
+ */
+async function parseNativePage(): Promise<ParsedPage> {
   // 必須是 `defuddle/full`：markdown 轉換器（內部走 turndown）只打包在 full 入口，
   // core 入口的型別同樣接受 markdown: true 但執行時直接忽略，落地會變成一坨 HTML
   // （2026-07-26 踩過：Substack 與 X 擷取回來的全文是單行 HTML，段落是 <br>）。
@@ -148,6 +168,44 @@ async function parsePage(): Promise<ParsedPage> {
     },
   }
 }
+async function parsePage(): Promise<ParsedPage> {
+  const youtube = parseYouTubeUrl(location.href)
+  if (youtube) {
+    // YouTube 頁面不是文章；直接交給 Hyday 的裸 URL → embed seam，
+    // 描述另存 metadata，由 raw clipping 轉成可點的時間戳 Markdown。
+    // 這樣不會把留言或推薦影片誤當成原文，也不必等待 Defuddle 解析動態 DOM。
+    const schemaOrgTypes = collectSchemaOrgTypes()
+    const meta = collectMeta()
+    const youtubeMetadata = extractYouTubePageMetadata(document, youtube)
+    return {
+      contentMarkdown: youtube.url,
+      metadata: {
+        url: location.href,
+        domain: location.hostname,
+        title: clean(youtubeMetadata.title) ?? clean(document.title) ?? youtube.url,
+        author: clean(youtubeMetadata.author),
+        published: clean(youtubeMetadata.published),
+        description: youtubeMetadata.description,
+        schemaOrgTypes: schemaOrgTypes.length > 0 ? schemaOrgTypes : undefined,
+        meta: Object.keys(meta).length > 0 ? meta : undefined,
+      },
+    }
+  }
+
+  if (isNotionUrl(location.href)) {
+    // 退回原生抽取這件事交給 withNotionFallback 做成結構保證，不是靠這裡記得包 try/catch
+    return withNotionFallback(parseNotionPage, async () => {
+      const native = await parseNativePage()
+      // 退回時 Defuddle 會拿 Notion 全站的 og:title（Where teams and agents work together）
+      // 當標題，落檔連是哪一篇都看不出來（2026-09-06 實案）。網頁標題才是這一頁的名字
+      const title = notionTitleFrom(document.title)
+      return title ? { ...native, metadata: { ...native.metadata, title } } : native
+    })
+  }
+
+  return parseNativePage()
+}
+
 
 async function extract(): Promise<ExtractedContent> {
   const page = await parsePage()

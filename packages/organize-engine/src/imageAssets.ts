@@ -10,7 +10,7 @@
  */
 import { mapOutsideFences, scanOutsideFences } from './fences'
 
-/** 圖片落點，vault 底下的固定資料夾；原料檔用 ../assets/ 指向它。 */
+/** 圖片落點，vault 底下的固定資料夾；Hyday 以 vault-root 的 assets/ 引用它。 */
 export const ASSETS_DIR = 'assets'
 
 /** Hyday 供得出來的副檔名，與 v2 electron/vault.cjs 的 ASSET_MIME 對齊 */
@@ -26,9 +26,18 @@ const CONTENT_TYPE_EXTENSION: Record<string, string> = {
 }
 const ALLOWED_EXTENSIONS = new Set(Object.values(CONTENT_TYPE_EXTENSION))
 
-// markdown 圖片語法。角括號寫法與後面的 title 都收，被連結包住時只吃內層的 ![]()
-const IMAGE_RE = /!\[[^\]]*\]\(\s*<?([^)\s>]+)>?(\s+"[^"]*")?\s*\)/g
-const UNSAFE_FILENAME_CHARS = /[\\/:*?"<>|]/g
+/**
+ * markdown 圖片語法。角括號寫法與後面的 title 都收，被連結包住時只吃內層的 ![]()。
+ *
+ * 網址那段允許帶成對的括號，CommonMark 本來就允許，而且真的會遇到：Notion 的圖片
+ * 檔名叫 01.滿版字卡(ch1,3).jpg，括號直接出現在網址中段（2026-09-06 實案）。
+ * 早先寫成 [^)\s>]+ 會在第一個右括號截斷，抓到半截網址、下載必定失敗，圖片就留在遠端。
+ */
+const IMAGE_RE =
+  /!\[[^\]]*\]\(\s*<?((?:[^()\s>]|\([^()\s]*\))+)>?(\s+"[^"]*")?\s*\)/g
+// 除了檔案系統的非法字元，括號也換掉：檔名唯一的用途是被 ![]() 引用，路徑裡的 )
+// 很多 Markdown 解析器會當成連結結尾，後面的字元變成普通文字、圖就壞了（2026-09-06）
+const UNSAFE_FILENAME_CHARS = /[\\/:*?"<>|()]/g
 const MAX_STEM = 40
 
 /** content-type 對到白名單副檔名，不在名單內回 null */
@@ -91,7 +100,10 @@ function lastPathSegment(url: string, depth = 0): string {
 }
 
 export function assetFileName(url: string, contentType?: string): string | null {
-  const last = lastPathSegment(url)
+  // 冒號是檔名的非法字元，一段路徑裡出現冒號，前面幾乎一定是命名空間不是名字：
+  // Notion 的附件解到底是 attachment:<uuid>:01.滿版字卡(ch13).jpg，uuid 會把名字的
+  // 字元上限吃滿，落檔變成 attachment-2982633b-e0c1-…-xxxx.jpg，看不出是哪張（2026-09-06 實案）
+  const last = lastPathSegment(url).split(':').pop() ?? ''
   const dot = last.lastIndexOf('.')
   const rawExt = dot > 0 ? last.slice(dot + 1).toLowerCase() : ''
   const ext = ALLOWED_EXTENSIONS.has(rawExt) ? rawExt : extensionForContentType(contentType)
@@ -132,9 +144,9 @@ export function rewriteImageUrls(markdown: string, mapping: Record<string, strin
       const name = mapping[url]
       if (!name) return whole
       const alt = whole.slice(0, whole.indexOf('](') + 1)
-      // 原料檔位於 vault/clippings，圖片位於 vault/assets；使用標準相對路徑，
-      // 讓一般 Markdown 閱讀器與 Hyday 都能解析到同一個檔案。
-      return `${alt}(../${ASSETS_DIR}/${name}${title ?? ''})`
+      // Hyday 的資產協定以 vault-root 的 assets/ 為基準；原料檔雖然位於 clippings/，
+      // 這裡仍要輸出 vault-root 路徑，讓編輯器能把它轉成 hyday-asset://。
+      return `${alt}(${ASSETS_DIR}/${name}${title ?? ''})`
     }),
   )
 }

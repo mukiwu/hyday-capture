@@ -31,6 +31,10 @@
 
 提供右鍵選單的三個擷取入口：擷取整頁、擷取選取內容、擷取連結
 
+### declarativeNetRequestWithHostAccess
+
+部分圖片 CDN 會拒絕沒有來源站資訊的下載請求。使用者主動擷取時，擴充功能會為正在下載的單一圖片建立暫時規則，把原文章的網站 origin 當成 Referer；規則只匹配本擴充功能 service worker 發出的該圖片 URL，下載完成立即移除，不會監看、封鎖或改寫其他瀏覽流量。擴充功能已有對圖片來源的 host permission，因此使用 WithHostAccess 版本，不額外取得網站權限
+
 ## 資料使用揭露（Privacy practices）
 
 - 資料蒐集問卷全部勾選不蒐集：擴充功能沒有伺服器，所有處理都在本機完成，網頁內容轉成 Markdown 後直接寫入使用者選擇的本機資料夾

@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import {
-  ASSETS_DIR,
   assetFileName,
   extensionForContentType,
   findRemoteImageUrls,
@@ -22,6 +21,19 @@ describe('findRemoteImageUrls', () => {
   it('帶 title 與角括號的寫法都收', () => {
     const md = '![a](<https://e.com/1.png> "標題")\n![b](https://e.com/2.png "標題")'
     expect(findRemoteImageUrls(md)).toEqual(['https://e.com/1.png', 'https://e.com/2.png'])
+  })
+
+  it('檔名帶括號的網址不會被切一半', () => {
+    // Notion 實案（2026-09-06）：檔名是 01.滿版字卡(ch1,3).jpg，網址中段就帶著括號。
+    // 正則在第一個右括號截斷，抓到半截網址、下載必然失敗，圖片就留在遠端。
+    // CommonMark 本來就允許 link destination 帶成對的括號
+    const url = 'https://app.notion.com/image/attachment%3A2982633b%3A01.card(ch13).jpg?table=block'
+    expect(findRemoteImageUrls(`![字卡](${url})`)).toEqual([url])
+  })
+
+  it('角括號寫法裡的括號也完整收得到', () => {
+    const url = 'https://e.com/photo(2026).png'
+    expect(findRemoteImageUrls(`![a](<${url}>)`)).toEqual([url])
   })
 
   it('重複網址只回一次', () => {
@@ -111,6 +123,35 @@ describe('assetFileName', () => {
     expect(assetFileName(url, 'image/webp')).toMatch(/^abc-[0-9a-f]{8}\.webp$/)
   })
 
+  it('最後一段帶命名空間前綴時只取冒號後那截當名字', () => {
+    // Notion 實案（2026-09-06）：附件網址解到底是 attachment:<uuid>:01.滿版字卡(ch13).jpg，
+    // uuid 就把 40 字元的名字吃滿，落檔是 attachment-2982633b-e0c1-4cdc-ad75-d825b-xxxx.jpg，
+    // 看不出是哪張圖。冒號本來就是檔名的非法字元，它前面那段幾乎一定是命名空間不是名字
+    const url =
+      'https://app.notion.com/image/attachment%3A2982633b-e0c1-4cdc-ad75-d825b070f77b%3A01.%E6%BB%BF%E7%89%88%E5%AD%97%E5%8D%A1(ch13).jpg?table=block&width=1410'
+    expect(assetFileName(url)).toMatch(/^01\.滿版字卡-ch13-[0-9a-f]{8}\.jpg$/)
+  })
+
+  it('冒號後那截沒有副檔名時照樣退回 content-type', () => {
+    expect(assetFileName('https://cdn.example.com/image:12345', 'image/png')).toMatch(
+      /^12345-[0-9a-f]{8}\.png$/,
+    )
+  })
+
+  it('沒有冒號的一般網址取名方式完全不變', () => {
+    expect(assetFileName('https://cdn.example.com/2026/08/cover-final.png')).toMatch(
+      /^cover-final-[0-9a-f]{8}\.png$/,
+    )
+  })
+
+  it('括號也換掉，Markdown 的連結語法認它當界定符', () => {
+    // 檔名唯一的用途是被 ![]() 引用，路徑裡的 ) 很多解析器會當成連結結尾，
+    // 後面的字元變成普通文字、圖就壞了。跟空格換成 - 是同一個理由
+    const name = assetFileName('https://e.com/a/photo(2026).png')
+    expect(name).not.toMatch(/[()]/)
+    expect(name).toMatch(/^photo-2026-[0-9a-f]{8}\.png$/)
+  })
+
   it('檔名有不安全字元時清掉', () => {
     const name = assetFileName('https://e.com/a/a:b*c.png')
     expect(name).not.toMatch(/[\\/:*?"<>|]/)
@@ -155,16 +196,16 @@ describe('unwrapLinkedImages', () => {
 })
 
 describe('rewriteImageUrls', () => {
-	it('把遠端網址換成 vault 相對路徑', () => {
-		const md = '![圖片](https://e.com/1.png)'
-		const out = rewriteImageUrls(md, { 'https://e.com/1.png': 'photo-1234abcd.png' })
-		expect(out).toBe(`![圖片](../${ASSETS_DIR}/photo-1234abcd.png)`)
-	})
+  it('把遠端網址換成 Hyday vault 資產路徑', () => {
+    const md = '![圖片](https://e.com/1.png)'
+    const out = rewriteImageUrls(md, { 'https://e.com/1.png': 'photo-1234abcd.png' })
+    expect(out).toBe('![圖片](assets/photo-1234abcd.png)')
+  })
 
   it('沒對應到的網址原樣留著，不要弄掉來源', () => {
     const md = '![a](https://e.com/1.png)\n![b](https://e.com/2.png)'
     const out = rewriteImageUrls(md, { 'https://e.com/1.png': 'x-1234abcd.png' })
-		expect(out).toContain(`../${ASSETS_DIR}/x-1234abcd.png`)
+    expect(out).toContain('assets/x-1234abcd.png')
     expect(out).toContain('https://e.com/2.png')
   })
 
@@ -173,7 +214,7 @@ describe('rewriteImageUrls', () => {
     const out = rewriteImageUrls(md, {
       'https://pbs.twimg.com/media/A?format=jpg': 'A-abcd1234.jpg',
     })
-		expect(out).toBe(`[![圖](../${ASSETS_DIR}/A-abcd1234.jpg)](https://x.com/a/photo/1)`)
+    expect(out).toBe('[![圖](assets/A-abcd1234.jpg)](https://x.com/a/photo/1)')
   })
 
   it('圍籬裡的不改', () => {
@@ -185,6 +226,6 @@ describe('rewriteImageUrls', () => {
     const out = rewriteImageUrls('![a](https://e.com/1.png "標題")', {
       'https://e.com/1.png': 'x-abcd1234.png',
     })
-		expect(out).toBe(`![a](../${ASSETS_DIR}/x-abcd1234.png "標題")`)
+    expect(out).toBe('![a](assets/x-abcd1234.png "標題")')
   })
 })
