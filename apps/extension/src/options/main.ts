@@ -36,20 +36,29 @@ async function showCurrent(): Promise<void> {
   const reauth = document.createElement('button')
   reauth.textContent = '重新授權寫入權限'
   reauth.addEventListener('click', () => {
+    // requestPermission 必須是點擊後的第一個 await，同 popup/main.ts 立下的規則：
+    // File System Access 的權限請求吃 transient activation，前面多一個 queryPermission 的
+    // IPC 來回就可能把 activation 用掉，Chrome 會直接不彈對話框、回 prompt 或拋錯。
+    // 這裡順手把 Chrome 的實際回應顯示出來，之前 catch 吞掉錯誤，使用者只看到「沒反應」
+    const activeAtClick = (navigator as Navigator & { userActivation?: { isActive: boolean } })
+      .userActivation?.isActive
     void (async () => {
       try {
-        const ok = await ensureReadWritePermission(handle)
-        if (ok) await showCurrent()
+        const state = await handle.requestPermission({ mode: 'readwrite' })
+        console.info('[hyday-capture] 重新授權', { activeAtClick, state })
+        if (state === 'granted') await showCurrent()
         else {
           setCurrent(
             'err',
-            '未取得寫入權限，請再試一次；若仍無法授權，請嘗試下方重新選擇資料夾。',
+            `未取得寫入權限（Chrome 回應：${state}），請再試一次；若仍無法授權，請嘗試下方重新選擇資料夾。`,
           )
         }
-      } catch {
+      } catch (err) {
+        console.error('[hyday-capture] 重新授權失敗', { activeAtClick, err })
+        const detail = err instanceof Error ? `${err.name}: ${err.message}` : String(err)
         setCurrent(
           'err',
-          '未取得寫入權限，請再試一次；若仍無法授權，請嘗試下方重新選擇資料夾。',
+          `未取得寫入權限（${detail}），請再試一次；若仍無法授權，請嘗試下方重新選擇資料夾。`,
         )
       }
     })()
