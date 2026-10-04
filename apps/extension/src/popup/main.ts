@@ -5,6 +5,9 @@
  * user activation，而 popup 開場的自動執行沒有 activation（重載擴充或瀏覽器重啟後，
  * 資料夾權限會被重設成 prompt，就會走到這條），所以那時改成顯示一顆按鈕，
  * 由使用者點擊帶出 activation，授權完成後接著擷取。
+ *
+ * 右鍵、快捷鍵這些背景入口也借這個 popup 回報：background 開 popup 前會先在
+ * storage.session 寫下擷取狀態，popup 讀到就只顯示那份狀態，不自己再擷取。
  */
 import {
   captureActiveTab,
@@ -13,6 +16,11 @@ import {
   requestWritePermission,
   CaptureError,
 } from '../capture/capture'
+import {
+  BACKGROUND_STATUS_KEY,
+  pickBackgroundStatus,
+  type BackgroundCaptureStatus,
+} from '../capture/backgroundStatus'
 import { ExtractionError } from '../extract/requestExtraction'
 import { fetchImageViaWorker } from '../net/imageFetch'
 
@@ -43,6 +51,22 @@ function reportError(err: unknown): void {
   setStatus('err', `擷取失敗：${message}`)
 }
 
+function reportSaved(filename: string, collided: boolean, skippedImages: number): void {
+  const suffix = collided ? '（原檔名已存在，改用不重複檔名）' : ''
+  if (skippedImages > 0) {
+    setStatus(
+      'warn',
+      '已擷取，寫入 ',
+      code(filename),
+      suffix,
+      document.createElement('br'),
+      `${skippedImages} 張圖片未能保存，已保留原網址`,
+    )
+  } else {
+    setStatus('ok', '已擷取，寫入 ', code(filename), suffix)
+  }
+}
+
 async function capture(dir: FileSystemDirectoryHandle): Promise<void> {
   if (popupClosed) return
   const controller = new AbortController()
@@ -55,19 +79,7 @@ async function capture(dir: FileSystemDirectoryHandle): Promise<void> {
   )
   try {
     const result = await captureActiveTab(dir, fetchImageViaWorker, undefined, controller.signal)
-    const suffix = result.collided ? '（原檔名已存在，改用不重複檔名）' : ''
-    if (result.images.skipped > 0) {
-      setStatus(
-        'warn',
-        '已擷取，寫入 ',
-        code(result.filename),
-        suffix,
-        document.createElement('br'),
-        `${result.images.skipped} 張圖片未能保存，已保留原網址`,
-      )
-    } else {
-      setStatus('ok', '已擷取，寫入 ', code(result.filename), suffix)
-    }
+    reportSaved(result.filename, result.collided, result.images.skipped)
   } catch (err) {
     if (
       (err instanceof ExtractionError && err.code === 'EXTRACT_CANCELLED') ||
@@ -104,7 +116,41 @@ function askPermission(dir: FileSystemDirectoryHandle): void {
   )
 }
 
+function showBackgroundStatus(status: BackgroundCaptureStatus): void {
+  if (status.state === 'running') {
+    setStatus('muted', '擷取中…')
+    return
+  }
+  if (status.state === 'done') {
+    reportSaved(status.filename, status.collided, status.skippedImages)
+  } else {
+    setStatus('err', `擷取失敗：${status.message}`)
+  }
+  // 結果已經看到了，清掉才不會讓下次點工具列只顯示舊結果
+  void chrome.storage.session.remove(BACKGROUND_STATUS_KEY)
+}
+
+/** 有背景擷取正在進行或剛結束就顯示它並回 true，popup 不再自己擷取 */
+async function followBackgroundCapture(): Promise<boolean> {
+  const stored = await chrome.storage.session.get(BACKGROUND_STATUS_KEY)
+  const status = pickBackgroundStatus(
+    stored[BACKGROUND_STATUS_KEY] as BackgroundCaptureStatus | undefined,
+    Date.now(),
+  )
+  if (!status) return false
+  showBackgroundStatus(status)
+  if (status.state === 'running') {
+    chrome.storage.session.onChanged.addListener((changes) => {
+      const next = changes[BACKGROUND_STATUS_KEY]?.newValue as BackgroundCaptureStatus | undefined
+      if (next) showBackgroundStatus(next)
+    })
+  }
+  return true
+}
+
 async function run(): Promise<void> {
+  if (await followBackgroundCapture()) return
+
   let dir: FileSystemDirectoryHandle
   try {
     dir = await getVaultDir()

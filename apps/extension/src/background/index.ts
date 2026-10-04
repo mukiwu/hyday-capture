@@ -17,6 +17,7 @@ import {
   planFromCommand,
   type CapturePlan,
 } from '../capture/plan'
+import { BACKGROUND_STATUS_KEY, type BackgroundCaptureStatus } from '../capture/backgroundStatus'
 import {
   FETCH_IMAGE_MESSAGE,
   handleFetchImageMessage,
@@ -78,6 +79,9 @@ chrome.commands.onCommand.addListener((command, tab) => {
 
 /** 把 CapturePlan 換成 captureFromBackground 的參數，跑管線並回報結果 */
 async function runCapture(plan: CapturePlan, tabId: number | undefined): Promise<void> {
+  // 先寫狀態再開 popup，否則 popup 讀不到狀態會自己擷取一次當前分頁
+  await setStatus({ state: 'running', at: Date.now() })
+  void showPopup()
   await clearBadge()
   const opts: CaptureOptions =
     plan.source === 'link'
@@ -86,6 +90,13 @@ async function runCapture(plan: CapturePlan, tabId: number | undefined): Promise
 
   try {
     const result = await captureFromBackground(opts)
+    await setStatus({
+      state: 'done',
+      at: Date.now(),
+      filename: result.filename,
+      collided: result.collided,
+      skippedImages: result.images.skipped,
+    })
     if (result.images.skipped > 0) {
       console.warn(`[hyday-capture] ${result.images.skipped} 張圖片未能保存，已保留原網址`)
       void flashBadge('!', '#e37400')
@@ -93,14 +104,32 @@ async function runCapture(plan: CapturePlan, tabId: number | undefined): Promise
       void flashBadge('✓', '#147a3d')
     }
   } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    await setStatus({ state: 'error', at: Date.now(), message })
     if (needsDocumentGesture(err)) {
       // SW 無法在無手勢下請求權限，帶使用者去設定頁重新授權（那裡有手勢 + document）
       chrome.runtime.openOptionsPage()
       void flashBadge('!', '#e37400')
-    } else {
-      console.error('[hyday-capture] 背景擷取失敗', err)
-      void flashBadge('!', '#b3261e')
+      return
     }
+    console.error('[hyday-capture] 背景擷取失敗', err)
+    void flashBadge('!', '#b3261e')
+  }
+  // 擷取途中使用者可能已經把 popup 關掉，結束時再開一次讓結果一定看得到
+  void showPopup()
+}
+
+async function setStatus(status: BackgroundCaptureStatus): Promise<void> {
+  await chrome.storage.session.set({ [BACKGROUND_STATUS_KEY]: status })
+}
+
+// 右鍵與快捷鍵沒有自己的畫面，借工具列 popup 顯示進度與結果。
+// openPopup 在視窗沒有焦點或舊版 Chrome 會失敗，那時仍有 badge 當備援
+async function showPopup(): Promise<void> {
+  try {
+    await chrome.action.openPopup()
+  } catch {
+    // 已開著或無法開啟都不影響擷取
   }
 }
 
