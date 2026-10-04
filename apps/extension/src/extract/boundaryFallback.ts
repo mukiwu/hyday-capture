@@ -11,16 +11,20 @@
  *
  * 刻意只在「全空」時退回，不用長度門檻：feed 型網站的貼文可以合法地只有一句話，
  * 用門檻判斷會把短貼文誤退回整片 feed，重演 postBoundary 當初要解的問題。
+ *
+ * 抽取本身是非同步的（Defuddle 的 YouTube 字幕只有 parseAsync 拿得到），所以 reject
+ * 也要當成「這次抽取失敗」退回原生抽取；同步 try/catch 接不到 rejected Promise，
+ * 一定要 await 在 try 裡面。parse 同時收同步與非同步實作，測試給同步值也成立。
  */
-export function parseWithBoundaryFallback<T extends { content?: string | null }>(
+export async function parseWithBoundaryFallback<T extends { content?: string | null }>(
   boundarySelector: string | undefined,
-  parse: (selector: string | undefined) => T,
-): T {
+  parse: (selector: string | undefined) => T | Promise<T>,
+): Promise<T> {
   if (!boundarySelector) return parse(undefined)
 
   let withBoundary: T
   try {
-    withBoundary = parse(boundarySelector)
+    withBoundary = await parse(boundarySelector)
   } catch {
     return parse(undefined)
   }

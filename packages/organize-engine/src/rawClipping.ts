@@ -7,7 +7,7 @@
  */
 import type { NoteType, ExtractedContent } from './types'
 import { detectNoteType } from './noteType'
-import { formatYouTubeDescription, parseYouTubeUrl } from './youtube'
+import { formatYouTubeDescription, parseYouTubeUrl, youtubeChapterOutline } from './youtube'
 import { safeFileStem } from './filename'
 import { serializeFrontmatter, formatTimestamp } from './frontmatter'
 
@@ -128,8 +128,19 @@ export function buildRawClipping(input: RawClippingInput): RawClippingOutput {
   const blocks: string[] = []
   const note = userNote?.trim()
   if (note) blocks.push(asBlockquote(note))
+  // 選取擷取時 youtube 是 null（選取的型別壓過網址啟發式），此時字幕一律不理
+  const outline =
+    youtube && extracted.transcriptMarkdown
+      ? youtubeChapterOutline(extracted.transcriptMarkdown, youtube)
+      : ''
   const content = youtube
-    ? [youtube.url, formatYouTubeDescription(extracted.description, youtube)].filter(Boolean).join('\n\n')
+    ? [
+        youtube.url,
+        formatYouTubeDescription(extracted.description, youtube),
+        outline ? `## 章節\n\n${outline}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n\n')
     : extracted.contentMarkdown.trim()
   if (content) blocks.push(content)
 

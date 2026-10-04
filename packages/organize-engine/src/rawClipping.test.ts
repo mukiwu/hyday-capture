@@ -174,6 +174,53 @@ describe('buildRawClipping 筆記類型', () => {
 		expect(body).not.toContain('YouTube 原文')
 	})
 
+  it('YouTube 有字幕章節時，描述後面附上可點的章節大綱', () => {
+    const extracted = fixture({
+      url: 'https://www.youtube.com/watch?v=aR97E7aKEgg',
+      description: '📌 時間戳\n0:00 開場',
+      transcriptMarkdown: [
+        '## Transcript',
+        '',
+        '### 開場白',
+        '',
+        '**0:04** · 哈囉。',
+        '',
+        '### 進入正題',
+        '',
+        '**1:07** · 我們開始吧。',
+        '',
+      ].join('\n'),
+    })
+    const { body } = split(buildRawClipping({ extracted, now: NOW }).markdown)
+
+    expect(body.trim()).toBe(
+      [
+        'https://www.youtube.com/watch?v=aR97E7aKEgg',
+        '',
+        '📌 時間戳',
+        '[0:00](https://www.youtube.com/watch?v=aR97E7aKEgg&t=0) 開場',
+        '',
+        '## 章節',
+        '',
+        '- [0:04](https://www.youtube.com/watch?v=aR97E7aKEgg&t=4) 開場白',
+        '- [1:07](https://www.youtube.com/watch?v=aR97E7aKEgg&t=67) 進入正題',
+      ].join('\n'),
+    )
+  })
+
+  it('在 YouTube 頁面只擷取選取內容時，不因帶著字幕資料而出錯', () => {
+    const extracted = fixture({
+      url: 'https://www.youtube.com/watch?v=aR97E7aKEgg',
+      contentMarkdown: '我選取的那一段話',
+      transcriptMarkdown: '### 開場白\n\n**0:04** · 哈囉。\n',
+    })
+    const { body } = split(
+      buildRawClipping({ extracted, now: NOW, selectionOnly: true }).markdown,
+    )
+
+    expect(body.trim()).toBe('我選取的那一段話')
+  })
+
   it('選取擷取的型別壓過網址啟發式', () => {
     const extracted = fixture({ url: 'https://example.com/a/photo.png' })
     const out = buildRawClipping({ extracted, now: NOW, selectionOnly: true })

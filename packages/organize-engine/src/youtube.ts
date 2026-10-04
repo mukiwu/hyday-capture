@@ -108,3 +108,44 @@ export function formatYouTubeDescription(description: string | undefined, video:
     )
     .join('\n')
 }
+
+/** Defuddle 字幕的章節標題行，例如 `### Introduction example` */
+const TRANSCRIPT_CHAPTER_RE = /^###\s+(.+?)\s*$/
+/** Defuddle 字幕的句首時間戳，例如 `**0:04** · This is a 3.` */
+const TRANSCRIPT_TIMESTAMP_RE = /^\*\*(\d{1,4}):([0-5][0-9])(?::([0-5][0-9]))?\*\*/
+
+/**
+ * 從 Defuddle 的 YouTube 字幕 Markdown 抽出章節大綱。
+ *
+ * 字幕逐字稿動輒三千字以上，整篇落進原料檔會淹掉筆記本身；章節標題加起始時間戳
+ * 才是使用者回頭找片段時真正用得到的索引。章節標題是 YouTube 作者自己下的
+ * （Defuddle 用 `###` 標），起始時間取該章節底下第一個句首時間戳。
+ *
+ * 沒有章節的影片回空字串，不硬湊——那種影片的逐字稿沒有結構可言，
+ * 給一串沒有標題的時間戳沒有意義。
+ */
+export function youtubeChapterOutline(transcript: string, video: YouTubeVideo): string {
+  const lines = transcript.replace(/\r\n?/g, '\n').split('\n')
+  const outline: string[] = []
+  let chapter: string | undefined
+
+  for (const line of lines) {
+    const heading = TRANSCRIPT_CHAPTER_RE.exec(line)
+    if (heading) {
+      chapter = heading[1]
+      continue
+    }
+    if (!chapter) continue
+
+    const stamp = TRANSCRIPT_TIMESTAMP_RE.exec(line)
+    if (!stamp) continue
+
+    const [, first, second, third] = stamp
+    const token = `${first}:${second}${third === undefined ? '' : `:${third}`}`
+    const seconds = timestampSeconds(first!, second!, third)
+    outline.push(`- [${token}](${youtubeTimestampUrl(video, seconds)}) ${chapter}`)
+    chapter = undefined
+  }
+
+  return outline.join('\n')
+}

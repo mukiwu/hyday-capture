@@ -26,6 +26,11 @@ export type ExtractedContent = {
   published?: string
   description?: string
   image?: string
+  /**
+   * YouTube 字幕的 Markdown（Defuddle 的 YouTube extractor 產出，需走 parseAsync）。
+   * 逐字稿本身不落地，引擎只從中抽章節大綱，見 youtubeChapterOutline
+   */
+  transcriptMarkdown?: string
   // 以下為 issue #4 模板引擎新增的可選欄位，由宿主 adapter（content script）先抽好。
   // 引擎不碰 DOM，只讀這些 already-extracted 字串。
   /** 頁面 schema.org @type（可多個），供模板 schemaOrg trigger 比對 */

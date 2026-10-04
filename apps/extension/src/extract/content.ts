@@ -135,14 +135,17 @@ async function parseNativePage(): Promise<ParsedPage> {
   // 邊界是啟發式、會誤判，parseWithBoundaryFallback 保證誤判最壞只退回原生抽取，
   // 不會讓抽得到的頁面變成抽不到，見 boundaryFallback
   const boundary = markPostBoundary(document, location.href)
-  let result: ReturnType<InstanceType<typeof Defuddle>['parse']>
+  let result: Awaited<ReturnType<InstanceType<typeof Defuddle>['parseAsync']>>
   try {
-    result = parseWithBoundaryFallback(boundary.selector, (selector) =>
+    // parseAsync 而不是 parse：站台專屬 extractor 的非同步路徑只有這支跑得到
+    // （YouTube 的字幕就在那條，同步 parse 抽出來的正文是空的）。沒有非同步
+    // extractor 的站，parseAsync 的行為等同 parse，不會多花時間
+    result = await parseWithBoundaryFallback(boundary.selector, (selector) =>
       new Defuddle(document, {
         url: location.href,
         markdown: true, // content 直接輸出 Markdown
         contentSelector: selector,
-      }).parse(),
+      }).parseAsync(),
     )
   } finally {
     boundary.restore()
@@ -168,15 +171,41 @@ async function parseNativePage(): Promise<ParsedPage> {
     },
   }
 }
+/**
+ * 向 Defuddle 的 YouTube extractor 要字幕 Markdown（`### 章節` 加 `**0:04**` 句首時間戳）。
+ * 逐字稿本身不落地，引擎只從中抽章節大綱，見 organize-engine 的 youtubeChapterOutline。
+ *
+ * 只有 parseAsync 跑得到這條：extractor 靠 InnerTube API 取字幕軌，同步 parse 抽出來的
+ * 正文是空的（實測 wordCount 0）。這是額外的網路往返，抽不到或超時就當作沒有字幕——
+ * 影片連結與描述才是主體，字幕是加分項，不能讓它把整次擷取拖垮。
+ */
+async function youtubeTranscriptMarkdown(): Promise<string | undefined> {
+  try {
+    const { default: Defuddle } = await import('defuddle/full')
+    const result = await new Defuddle(document, {
+      url: location.href,
+      markdown: true,
+    }).parseAsync()
+    // 認 extractorType 而不是認有沒有內容：extractor 沒接手時 Defuddle 會拿頁面上
+    // 的推薦影片、留言去湊一份「正文」，那種東西當字幕解析只會生出假章節
+    if (result.extractorType !== 'youtube') return undefined
+    return result.content?.trim() || undefined
+  } catch (err) {
+    console.warn('[hyday-capture] YouTube 字幕抽取失敗，只留影片連結與描述', err)
+    return undefined
+  }
+}
+
 async function parsePage(): Promise<ParsedPage> {
   const youtube = parseYouTubeUrl(location.href)
   if (youtube) {
-    // YouTube 頁面不是文章；直接交給 Hyday 的裸 URL → embed seam，
-    // 描述另存 metadata，由 raw clipping 轉成可點的時間戳 Markdown。
-    // 這樣不會把留言或推薦影片誤當成原文，也不必等待 Defuddle 解析動態 DOM。
+    // YouTube 頁面不是文章；正文交給 Hyday 的裸 URL → embed seam，描述與字幕
+    // 另存 metadata，由 raw clipping 轉成可點的時間戳與章節大綱。
+    // 走這條而不是原生抽取，留言與推薦影片才不會被誤當成原文。
     const schemaOrgTypes = collectSchemaOrgTypes()
     const meta = collectMeta()
     const youtubeMetadata = extractYouTubePageMetadata(document, youtube)
+    const transcriptMarkdown = await youtubeTranscriptMarkdown()
     return {
       contentMarkdown: youtube.url,
       metadata: {
@@ -186,6 +215,7 @@ async function parsePage(): Promise<ParsedPage> {
         author: clean(youtubeMetadata.author),
         published: clean(youtubeMetadata.published),
         description: youtubeMetadata.description,
+        transcriptMarkdown,
         schemaOrgTypes: schemaOrgTypes.length > 0 ? schemaOrgTypes : undefined,
         meta: Object.keys(meta).length > 0 ? meta : undefined,
       },
