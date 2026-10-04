@@ -17,9 +17,15 @@ import { PARAGRAPH_BREAK_TOKEN } from '@hyday-capture/organize-engine'
 
 /**
  * 這些容器裡的換行不能變成段落邊界，會把 markdown 的區塊結構打斷
- * （表格儲存格、標題、清單項、連結文字）
+ * （表格儲存格、標題、清單項、連結文字、程式碼）
+ *
+ * pre 與 code 是後來補的：它們的 computed white-space 正好就是 `pre`，會被
+ * preservesNewlines 選中，程式碼的每個換行都被換成標記。而 applyParagraphBreaks
+ * 走 mapOutsideFences，fence 裡面刻意不動，標記於是永久留在 code block 裡，
+ * 落地的程式碼變成一行 HYDAYPARABREAK 串。AI 對話頁整篇都是 code block，
+ * 這條一定要擋（2026-09-14 在測試容器上重現）
  */
-const BLOCK_SAFE_ANCESTORS = 'td, th, li, h1, h2, h3, h4, h5, h6, a'
+const BLOCK_SAFE_ANCESTORS = 'td, th, li, h1, h2, h3, h4, h5, h6, a, pre, code'
 
 function isInsideBlockSafeAncestor(node: Node): boolean {
   const el = node.parentElement
