@@ -99,6 +99,10 @@ function markBrRuns(doc: Document, undos: (() => void)[]): void {
     parent.insertBefore(marker, br)
     for (const node of run) node.remove()
     undos.push(() => {
+      // 抽取是非同步的，等待期間 SPA 可能自己重畫、把標記連同那塊 DOM 換掉
+      // （2026-10-10 Facebook watch 頁實案）。那塊已經是頁面的新內容，沒東西好還原，
+      // 硬插回去只會拋錯讓整次擷取失敗
+      if (marker.parentNode !== parent) return
       for (const node of run) parent.insertBefore(node, marker)
       marker.remove()
     })
