@@ -17,6 +17,13 @@ import {
   withNotionFallback,
 } from './notionPage'
 import { loadMarkdownConverter } from './markdownConverter'
+import {
+  extractFacebookVideo,
+  facebookVideoMarkdown,
+  facebookVideoTitle,
+  isEmbedBlocked,
+  parseFacebookVideoUrl,
+} from './facebookVideo'
 
 export type ExtractMessage =
   | { type: 'HYDAY_EXTRACT' }
@@ -218,6 +225,25 @@ async function parsePage(): Promise<ParsedPage> {
         transcriptMarkdown,
         schemaOrgTypes: schemaOrgTypes.length > 0 ? schemaOrgTypes : undefined,
         meta: Object.keys(meta).length > 0 ? meta : undefined,
+      },
+    }
+  }
+
+  const facebookVideo = parseFacebookVideoUrl(location.href)
+  if (facebookVideo) {
+    // Reel 牆與 watch 頁都不是文章，原生抽取只會撈到按讚數與播放控制項，見 facebookVideo
+    const [video, embedBlocked] = await Promise.all([
+      extractFacebookVideo(document, facebookVideo.id),
+      isEmbedBlocked(facebookVideo.url),
+    ])
+    return {
+      contentMarkdown: facebookVideoMarkdown(facebookVideo.url, video.caption, { embedBlocked }),
+      metadata: {
+        url: facebookVideo.url,
+        domain: location.hostname,
+        title: facebookVideoTitle(video.caption, video.author),
+        author: clean(video.author),
+        published: clean(video.published),
       },
     }
   }
