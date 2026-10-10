@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Hyday Capture",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "一鍵把當前網頁擷取成 Hyday 能吃的 Markdown 筆記，落進你本機的 vault",
   "icons": {
     "16": "hyday-capture-icon-16.png",
