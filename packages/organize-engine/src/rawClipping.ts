@@ -46,7 +46,9 @@ const TAB_UNREAD_PREFIX = /^\(\d{1,3}\)\s+/
 
 /** 抽取到的標題只做一件事：拿掉分頁標題的未讀計數噪音。其餘一律原樣保留 */
 export function normalizeCapturedTitle(raw: string): string {
-  return raw.replace(TAB_UNREAD_PREFIX, '').trim()
+  // 半形 | 換成 -：| 不能用在檔名，在 Hyday 也是雙鏈的分隔符號，標題寫成 [[標題]] 會被當成別名。
+  // 外部標題進來的這一刻處理，跟 Hyday 的 YouTube 筆記同一個規則（hyday-source #330）
+  return raw.replace(TAB_UNREAD_PREFIX, '').replace(/\|/g, '-').trim()
 }
 
 /**

@@ -50,6 +50,17 @@ describe('rawClippingFilename', () => {
   })
 })
 
+describe('標題裡的半形直線', () => {
+  // hyday-source #330：| 是 Hyday 雙鏈的分隔符號，外部標題進來時就換成 -
+  it('檔名與 frontmatter 標題都把 | 換成 -，兩邊一致', () => {
+    const title = '【#博音】EP242 | 談判大叔'
+    expect(rawClippingFilename(title, 'https://example.com/x', NOW)).toBe('2026-07-26-1432 【#博音】EP242 - 談判大叔.md')
+    const { fm } = split(buildRawClipping({ extracted: fixture({ title }), now: NOW }).markdown)
+    expect(fm).toContain('EP242 - 談判大叔')
+    expect(fm).not.toContain('|')
+  })
+})
+
 describe('buildRawClipping frontmatter', () => {
   // 用縮排列表不用行內陣列：hyday v2 的 noteIndex 三種形都吃，但屬性面板的
   // parseFrontmatterEntries 只認縮排列表（行內會被讀成字串），使用者 vault 既有
